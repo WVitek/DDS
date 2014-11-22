@@ -1,0 +1,66 @@
+
+function MulSum(const S1{eax},S2{edx}; BlockLen{ecx}:Integer; var Ro:Double):Double;
+register;
+{
+var
+	imax:Integer;
+	i:Integer;
+	Weight,MaxWeight:Double;
+	A1:TSingleArray absolute S1;
+	A2:TSingleArray absolute S2;
+begin
+	Weight:=0;
+	for i:=0 to MinBlockLen-1 do Weight:=Weight+A1[i]*A2[i];
+	MaxWeight:=0;
+	imax:=-1;
+	for i:=MinBlockLen to BlockLen-1 do begin
+		Weight:=Weight+A1[i]*A2[i];
+		if MaxWeight<Weight then begin
+			MaxWeight:=Weight;
+			imax:=i;
+		end
+	end;
+	Len:=imax+1;
+end;
+}
+asm
+	push  esi
+	mov   esi,S1
+	push  edi
+	mov   edi,S2
+	fldz
+	mov   edx,BlockLen
+	fldz
+	shl   edx,2
+	xor   ecx,ecx
+	lea   esi,[esi+edx]
+	sub   ecx,edx
+	lea   edi,[edi+edx]
+	mov   imax,ecx
+
+@Loop:
+	fld   single ptr [esi+ecx]
+	fmul  single ptr [edi+ecx]
+	faddp st(2),st
+	fcom  st(1)  // cmp MaxWeight,Weight
+	fstsw ax
+	sahf
+	jnb   @EndIf // if MaxWeight<=Weight then
+		fstp  st
+		mov   imax,ecx
+		fld   st
+	@EndIf:
+	add   ecx,4
+	jnz   @Loop
+
+	mov   ecx,imax
+	fstp	Result
+	pop   edi
+	lea   edx,[edx+ecx+4]
+	pop   esi
+	mov   eax,Len
+	sar   edx,2
+	fstp  st
+	mov   [eax],edx
+end;
+

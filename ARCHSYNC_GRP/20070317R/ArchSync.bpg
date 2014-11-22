@@ -1,0 +1,32 @@
+#------------------------------------------------------------------------------
+VERSION = BWS.01
+#------------------------------------------------------------------------------
+!ifndef ROOT
+ROOT = $(MAKEDIR)\..
+!endif
+#------------------------------------------------------------------------------
+MAKE = $(ROOT)\bin\make.exe -$(MAKEFLAGS) -f$**
+DCC = $(ROOT)\bin\dcc32.exe $**
+BRCC = $(ROOT)\bin\brcc32.exe $**
+#------------------------------------------------------------------------------
+PROJECTS = ArchSync.exe Connect.exe Discnnct.exe ChkConn.exe GetState.exe
+#------------------------------------------------------------------------------
+default: $(PROJECTS)
+#------------------------------------------------------------------------------
+
+ArchSync.exe: ArchSync.dpr
+  $(DCC)
+
+Connect.exe: Connect.dpr
+  $(DCC)
+
+Discnnct.exe: Discnnct.dpr
+  $(DCC)
+
+ChkConn.exe: ChkConn.dpr
+  $(DCC)
+
+GetState.exe: GetState.dpr
+  $(DCC)
+
+

@@ -1,0 +1,1 @@
+call _app_cmd %1 ArchMan ArchSync Center DataCol Ldr7017 Ldr7188 Monitor MonitorN NetAccss Replay M_Shared

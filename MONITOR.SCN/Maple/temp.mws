@@ -1,0 +1,53 @@
+{VERSION 2 3 "IBM INTEL NT" "2.3" }
+{USTYLETAB {CSTYLE "Maple Input" -1 0 "Courier" 0 1 255 0 0 1 0 1 0 0 
+1 0 0 0 0 }{CSTYLE "2D Math" -1 2 "Times" 0 1 0 0 0 0 0 0 2 0 0 0 0 0 
+0 }{CSTYLE "2D Output" 2 20 "" 0 1 0 0 255 1 0 0 0 0 0 0 0 0 0 }
+{PSTYLE "Normal" -1 0 1 {CSTYLE "" -1 -1 "" 0 1 0 0 0 0 0 0 0 0 0 0 0 
+0 0 }0 0 0 -1 -1 -1 0 0 0 0 0 0 -1 0 }{PSTYLE "Maple Output" 0 11 1 
+{CSTYLE "" -1 -1 "" 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 }3 3 0 -1 -1 -1 0 0 
+0 0 0 0 -1 0 }{PSTYLE "" 11 12 1 {CSTYLE "" -1 -1 "" 0 1 0 0 0 0 0 0 
+0 0 0 0 0 0 0 }1 0 0 -1 -1 -1 0 0 0 0 0 0 -1 0 }}
+{SECT 0 {EXCHG {PARA 0 "> " 0 "" {MPLTEXT 1 0 23 "series(BesselI(1,x),
+x);" }}}{EXCHG {PARA 0 "> " 0 "" {MPLTEXT 1 0 51 "i1:=BesselI(1,a*x)/B
+esselI(1,x);\nsi1:=series(i1,x);" }}}{EXCHG {PARA 0 "> " 0 "" 
+{MPLTEXT 1 0 22 "fa:=subs(a=0.02122,f);" }}}{EXCHG {PARA 0 "> " 0 "" 
+{MPLTEXT 1 0 349 "unassign('a','tf','t','u','alpha');\nf:=exp(-a*(tf+t
+))*BesselI(1,a*sqrt((tf+t)^2-tf^2))/sqrt((tf+t)^2-tf^2);\n#usub:=sqrt(
+(tf+t)^2-tf^2);\n#tsub:=op(1,[solve(usub=u,t)]);\n#fu:=simplify(algsub
+s(t=tsub,f),assume=positive);\n#fsu:=simplify(series(fu,u),assume=posi
+tive);\n#fst:=collect(algsubs(-a*tf=alpha,simplify(algsubs(u=usub,conv
+ert(fsu,polynom)))),t);" }}{PARA 11 "" 1 "" {XPPMATH 20 "6#>%\"fG*(-%$
+expG6#,$*&%\"aG\"\"\",&%#tfGF,%\"tGF,F,!\"\"F,-%(BesselIG6$F,*&F+F,,&*
+&F.F,F/F,\"\"#*$F/F7F,#F,F7F,F5#F0F7" }}}{EXCHG {PARA 0 "> " 0 "" 
+{MPLTEXT 1 0 71 "tst:=evalf(subs(alpha=-a*tf,a=0.02122,tf=1,[fst,f]));
+\nplot(tst,t=0..5);" }}}{EXCHG {PARA 0 "> " 0 "" {MPLTEXT 1 0 220 "eq:
+=op(2,fu)=op(1,fu)*op(3,fu);\nufunc:=proc(a,tf) RETURN(op(1,[fsolve(Be
+sselI(1,a*u) = exp(-a*(tf^2+u^2)^(1/2))/u,u)])); end;\nplot3d(ufunc,a=
+0.01..0.02,tf=112..113,grid=[20,20],axes=BOXED,shading=ZGREYSCALE,styl
+e=PATCH);" }}}{EXCHG {PARA 0 "> " 0 "" {MPLTEXT 1 0 42 "p:=phi(t)*exp(
+-a*tf)+a*tf*int(phi(t)*f,t);" }}{PARA 11 "" 1 "" {XPPMATH 20 "6#>%\"pG
+,&*&-%$phiG6#%\"tG\"\"\"-%$expG6#,$*&%\"aGF+%#tfGF+!\"\"F+F+*(F1F+F2F+
+-%$intG6$**F'F+-F-6#,$*&F1F+,&F2F+F*F+F+F3F+-%(BesselIG6$F+*&F1F+,&*&F
+2F+F*F+\"\"#*$F*FDF+#F+FDF+FB#F3FDF*F+F+" }}}{EXCHG {PARA 0 "> " 0 "" 
+{MPLTEXT 1 0 10 "diff(p,t);" }}{PARA 11 "" 1 "" {XPPMATH 20 "6#,&*&-%%
+diffG6$-%$phiG6#%\"tGF+\"\"\"-%$expG6#,$*&%\"aGF,%#tfGF,!\"\"F,F,*.F2F
+,F3F,F(F,-F.6#,$*&F2F,,&F3F,F+F,F,F4F,-%(BesselIG6$F,*&F2F,,&*&F3F,F+F
+,\"\"#*$F+FAF,#F,FAF,F?#F4FAF," }}}{EXCHG {PARA 0 "> " 0 "" {MPLTEXT 
+1 0 159 "st:=(2*tf*t+t^2)^(1/2);\ndp1:=dp0*exp(-a*tf1)+a*tf1*p0*exp(-a
+*(tf1+t))*BesselI(1,a*st1)/st1;\ndp2:=dp0*exp(-a*tf2)+a*tf2*p0*exp(-a*
+(tf2+t))*BesselI(1,a*st2)/st2;" }}{PARA 11 "" 1 "" {XPPMATH 20 "6#>%#s
+tG*$,&*&%#tfG\"\"\"%\"tGF)\"\"#*$F*F+F)#F)F+" }}{PARA 11 "" 1 "" 
+{XPPMATH 20 "6#>%$dp1G,&*&%$dp0G\"\"\"-%$expG6#,$*&%\"aGF(%$tf1GF(!\"
+\"F(F(*.F.F(F/F(%#p0GF(-F*6#,$*&F.F(,&F/F(%\"tGF(F(F0F(-%(BesselIG6$F(
+*&F.F(%$st1GF(F(F=F0F(" }}{PARA 11 "" 1 "" {XPPMATH 20 "6#>%$dp2G,&*&%
+$dp0G\"\"\"-%$expG6#,$*&%\"aGF(%$tf2GF(!\"\"F(F(*.F.F(F/F(%#p0GF(-F*6#
+,$*&F.F(,&F/F(%\"tGF(F(F0F(-%(BesselIG6$F(*&%$st2GF(F.F(F(F=F0F(" }}}
+{EXCHG {PARA 0 "> " 0 "" {MPLTEXT 1 0 55 "sort(collect(solve(\{dp1=d1,
+dp2=d2\},\{dp0,p0\}),[d1,d2]));" }}{PARA 12 "" 1 "" {XPPMATH 20 "6#<$/
+%#p0G,&*0,&*(%$st2G\"\"\"-%(BesselIG6$F+*&%\"aGF+%$st1GF+F+%$tf1GF+F+*
+(F1F+-F-6$F+*&F*F+F0F+F+%$tf2GF+!\"\"F8F*F+F0F8%#d1GF+F1F+-%$expG6#,$*
+&F0F+F7F+F8F+-F;6#,(*&F0F+%\"tGF+F+*&F0F+F2F+F+F>F+F+F+*0F(F8F*F+F0F8%
+#d2GF+F1F+-F;6#,$FDF8F+F?F+F8/%$dp0G,&*0F(F8F*F+FFF+F,F+FGF+F2F+-F;6#,
+&FDF+F>F+F+F+*0F(F8F9F+F1F+F4F+F:F+F7F+FNF+F8" }}}{EXCHG {PARA 0 "> " 
+0 "" {MPLTEXT 1 0 0 "" }}}}{MARK "8 0 0" 23 }{VIEWOPTS 1 1 0 1 1 1803 
+}

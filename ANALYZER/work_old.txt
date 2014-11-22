@@ -1,0 +1,53 @@
+function MulSum(const S1{eax},S2{edx}; BlockLen{ecx}:Integer; var Ro:Double):Double;
+register;
+asm
+	lea   ecx,[ecx*4]
+	fldz  // Ro
+	lea   eax,[eax+ecx]
+	lea   edx,[edx+ecx]
+	neg   ecx
+	fldz  // Sum
+
+@Loop:
+	fld   single ptr [edx+ecx] // ST = A2[i]
+	fld   st
+	fmul  st(1),st // ST(1) = A2[i]*A2[i]
+	fld   single ptr [eax+ecx] // ST = A1[i]
+	fmulp // ST = A1[i]*A2[i]
+	add   ecx,4
+	faddp st(2),st // Sum = Sum + A1[i]*A2[i]
+	faddp st(2),st // Ro = Ro + A2[i]*A2[i]
+	jnz   @Loop
+
+	mov   eax,Ro
+	fstp  Result
+	fstp  double ptr [eax]
+end;
+
+procedure TFinder.Work;
+var
+	i,Size:Integer;
+	W,Ro2,Tmp:Double;
+	S1Items:packed array [0..255] of Single;
+begin
+	iFound:=-1;
+	Move(S1.Items[0],S1Items,BlockLen*SizeOf(Single));
+	Tmp:=0;
+	for i:=0 to BlockLen-1 do Tmp:=Tmp+S1Items[i]*S1Items[i];
+	if Tmp<2e-18{8} then exit;
+	Tmp:=1/Sqrt(Tmp);
+	for i:=0 to BlockLen-1 do S1Items[i]:=S1Items[i]*Tmp;
+
+	Size:=Length(S1.Items);
+	wFound:=0;
+	for i:=0 to Size-BlockLen-1 do begin
+		W:=MulSum(S1Items,S2.Items[i],BlockLen,Ro2);
+		if Ro2=0 then continue;
+		W:=Abs(W)/Sqrt(Ro2);
+		if wFound<W then begin
+			wFound:=W;
+			iFound:=i;
+		end
+	end;
+end;
+

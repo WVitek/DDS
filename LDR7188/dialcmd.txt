@@ -1,0 +1,15 @@
+U.S.Robotics Sportster
+
+AT &F0 &D3 &K2 E0 &U6 X3 D
+
+&F0 - Load Factory Defaults 0, no flow control
+&Dn n=0  Ignore DTR
+    n=2  DTE Controls DTR
+    n=3  Reset ON DTR Loss
+&R1 - Ignore RTS
+&H0 - Disable TX Flow Control
+&I0 - Disable RX Flow Control
+&C1 - Modem Controls CD
+&U6 - Minimum link rate 9600 bps
+&Kn n=2  Enable Data Compression
+    n=3  Selective Data Compression

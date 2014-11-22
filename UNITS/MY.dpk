@@ -1,0 +1,38 @@
+package my;
+
+{$R *.RES}
+{$R 'ScrollerReg.DCR'}
+{$ALIGN ON}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO ON}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST ON}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DESCRIPTION 'W.Vitek''s test package :)'}
+{$IMPLICITBUILD OFF}
+
+requires
+  vcl50;
+
+contains
+  Scroller in 'Scroller.pas',
+  Misc in 'Misc.pas',
+  ScrollerReg in 'ScrollerReg.pas',
+  DblGraphics in 'DblGraphics.pas';
+
+end.

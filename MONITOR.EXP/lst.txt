@@ -1,0 +1,5516 @@
+unit UFrameGroup;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Math,
+  Dialogs, Buttons, ExtCtrls, UFrameGraph, SensorTypes,
+  IniFiles, Misc, ArchManThd, Menus, DataTypes, DataTypes2, ShellAPI, FileCtrl,
+  SyncObjs, DblGraphics, UGroupOptions, StdCtrls, MessageForm, ActnList;
+
+type
+  TFrameGroup = class(TFrame)
+    pmenuGenPip: TPopupMenu;
+    miGenPipAnyday: TMenuItem;
+    miRunPipViewer: TMenuItem;
+    miViewPipLast10Minutes: TMenuItem;
+    miViewPipLastHour: TMenuItem;
+    miViewPipToday: TMenuItem;
+    miViewPipYesterday: TMenuItem;
+    miViewPipAnyDay: TMenuItem;
+    miViewPip: TMenuItem;
+    miGenPipYesterday: TMenuItem;
+    miGenPip: TMenuItem;
+    miLine2: TMenuItem;
+    miLine1: TMenuItem;
+    PopupMenu: TPopupMenu;
+    miCaption: TMenuItem;
+    PnlTools: TPanel;
+    PnlTools2: TPanel;
+    SpdBtnGeneratePip: TSpeedButton;
+    SpdBtnOptions: TSpeedButton;
+    SpdBtnROffGOn: TSpeedButton;
+    SpdBtnROnGOn: TSpeedButton;
+    SpdBtnSetArcTime: TSpeedButton;
+    SpdBtnCalculation: TSpeedButton;
+    SpdBtnScrollLock: TSpeedButton;
+    SpdBtnZoomIn: TSpeedButton;
+    SpdBtnZoomOut: TSpeedButton;
+    SpdBtnDecSec: TSpeedButton;
+    stSec: TStaticText;
+    SpdBtnIncSec: TSpeedButton;
+    SpdBtnDecMin: TSpeedButton;
+    stMin: TStaticText;
+    SpdBtnIncMin: TSpeedButton;
+    SpdBtnDecHour: TSpeedButton;
+    stHour: TStaticText;
+    SpdBtnIncHour: TSpeedButton;
+    SpdBtnSpyMode: TSpeedButton;
+    menuCapacity: TPopupMenu;
+    miCapacity: TMenuItem;
+    miDecCapacity: TMenuItem;
+    miIncCapacity: TMenuItem;
+    miSep1: TMenuItem;
+    miCap001: TMenuItem;
+    miCap005: TMenuItem;
+    miCap015: TMenuItem;
+    miCap030: TMenuItem;
+    miCap060: TMenuItem;
+    miCap120: TMenuItem;
+    miCap240: TMenuItem;
+    miCopy: TMenuItem;
+    procedure FrameResize(Sender: TObject);
+    procedure FrameConstrainedResize(Sender: TObject; var MinWidth,
+      MinHeight, MaxWidth, MaxHeight: Integer);
+    procedure SpdBtnScrollLockClick(Sender: TObject);
+    procedure SpdBtnGeneratePipClick(Sender: TObject);
+    procedure miViewLastNMinutesPipClick(Sender: TObject);
+    procedure miViewLastNthDayPipClick(Sender: TObject);
+    procedure miGeneratePipClick(Sender:TObject);
+    procedure miRunPipViewerClick(Sender: TObject);
+    procedure SpdBtnOptionsClick(Sender: TObject);
+    procedure SpdBtnSignalClick(Sender: TObject);
+    procedure miViewPipAdvancedDrawItem(Sender: TObject; ACanvas: TCanvas;
+      ARect: TRect; State: TOwnerDrawState);
+    procedure miViewPipAnyDayClick(Sender: TObject);
+    procedure SpdBtnSetArcTimeClick(Sender: TObject);
+    procedure SpdBtnCalculationClick(Sender: TObject);
+    procedure miCopyClick(Sender: TObject);
+    procedure SpdBtnAlarmDblClick(Sender: TObject);
+    procedure FrameEnter(Sender: TObject);
+    procedure FrameExit(Sender: TObject);
+    procedure FrameClick(Sender: TObject);
+    procedure AnyArcViewClick(Sender: TObject);
+    procedure SpdBtnSpyModeClick(Sender: TObject);
+    procedure miAnyCapacityClick(Sender: TObject);
+    procedure miDecCapacityClick(Sender: TObject);
+    procedure miIncCapacityClick(Sender: TObject);
+  //***** IMonitorMaster
+  public
+    procedure QueryArcView(Time:TDateTime);
+    procedure NotifyActivity(Sender:TObject);
+  //***** IMonitorSlave
+  private
+    procedure Set_ArcEndTime(const Value:TDateTime);
+    function Get_ArcEndTime:TDateTime;
+    function Get_SpyEndTime: TDateTime;
+    procedure Set_SpyMode(const Value:Boolean);
+    function Get_SpyMode:Boolean;
+    procedure Set_TimeCapacity(const Value: TDateTime);
+    function Get_TimeCapacity: TDateTime;
+    procedure Set_Negative(const Value:Boolean);
+    function Get_ArcPipFilePath: String;
+    function Get_PipViewerPath(TrackID: Integer): String;
+    function Get_TmpPipFilePath: String;
+  public
+    procedure MyPaintTo(dc:HDC; X,Y:Integer);
+    property SpyMode:Boolean read Get_SpyMode write Set_SpyMode;
+    property ArcEndTime:TDateTime read Get_ArcEndTime write Set_ArcEndTime;
+    property SpyEndTime:TDateTime read Get_SpyEndTime;
+    property TimeCapacity:TDateTime read Get_TimeCapacity write Set_TimeCapacity;
+    property Negative:Boolean write Set_Negative;
+    procedure TimerProc;
+  //*****
+  private
+    { Private declarations }
+    LockSynchronize:Boolean;
+    Canvas:TControlCanvas;
+    function Get_FPG(i: Integer): TFrameGraph;
+    function Get_LastRecTime: TDateTime;
+    function Get_ScrollLock: Boolean;
+    property PipViewerPath[TrackID:Integer]:String read Get_PipViewerPath;
+    property ArcPipFilePath:String read Get_ArcPipFilePath;
+    property TmpPipFilePath:String read Get_TmpPipFilePath;
+  public
+    { Public declarations }
+    Graphs:TList;
+    ActiveGraph1,ActiveGraph2:TFrameGraph;
+    LastScroll:TObject;
+    MaxTime:TDateTime;
+    Section:String;
+    TimerCounter:Integer;
+    // DDS
+    DDSLineLen:Integer;
+    WaveSpeed,WaveAlpha1,WaveAlpha2:Double;
+    TimeDelta:Double;
+    // Alarm
+    AlarmNoSound,AlarmSingle,AlarmNoData,AlarmSpeaker,AlarmMedia:Boolean;
+    AlarmConfirm,AlarmConfirmed:Boolean;
+    AlarmActive,UserAlarm:Boolean;
+    MediaFile:String;
+    //
+    procedure SynchronizeGraphs(L:TFrameGraph);
+    procedure LoadFromIniSection(Ini,Cfg:TIniFile; const Section:String);
+    procedure SaveCfg(Cfg:TIniFile);
+    procedure LockGraphs;
+    procedure UnlockGraphs;
+    function GeneratePipFile(StartDT, Len:TDateTime;
+      const PathTemplate:WideString):WideString;
+    procedure RunPipViewer(const Params:String);
+    procedure SetDDS_LL(LL:Integer);
+    procedure DDSSignal(SignalOn,ReqLight:Boolean);
+    function QueryDate(var Date:TDateTime):Boolean;
+    function CalculateWaveSpeed:Double;
+    procedure CalculateDrainKm;
+    procedure GetActiveGraphs(var F1,F2:TFrameGraph);
+    constructor CreateFromIniSection(AOwner:TComponent; Ini,Cfg:TIniFile;
+      const Section:String);
+    destructor Destroy;override;
+  public
+    property Caption;
+    property Graph[i:Integer]:TFrameGraph read Get_FPG;
+    property ActiveGraph:TFrameGraph read ActiveGraph2;
+    property ScrollLock:Boolean read Get_ScrollLock;
+    property LastRecTime:TDateTime read Get_LastRecTime;
+  end;
+
+var
+  FrameGroup: TFrameGroup;
+
+procedure CopyToClipboard(C:TCanvas; R:TRect);
+
+implementation
+
+uses Clipbrd, DaySelect, DateTimeSelect, Main, UFormPipe, UFormAnaliz;
+
+{$R *.DFM}
+
+type
+  TGPFHelper=object
+    Cnt:Integer;
+    Sum,Last:Double;
+    Data:WideString;
+    procedure GetAvgData(var F:Byte; var P:Single);
+    procedure Zero;
+    procedure Process(i:Integer);
+  end;
+
+procedure CopyToClipboard(C:TCanvas; R:TRect);
+var
+  BM:TBitmap;
+  Dest:TRect;
+begin
+  BM:=TBitmap.create;
+  Dest.Top:=0; Dest.Left:=0;
+  Dest.Right:=R.Right-R.Left;
+  Dest.Bottom:=R.Bottom-R.Top;
+  BM.Width:=Dest.Right+1;
+  BM.Height:=Dest.Bottom+1;
+  try
+    BM.Canvas.CopyRect(Dest,C,R);
+    Clipboard.Assign(BM);
+  finally
+    BM.Free;
+  end;
+end;
+
+procedure TFrameGroup.FrameResize(Sender: TObject);
+var
+  i:Integer;
+  MinX,H,W:Integer;
+begin
+  if Graphs.Count=0 then exit;
+  MinX:=PnlTools.Width+1;
+  W:=ClientWidth-MinX;
+  H:=ClientHeight div Graphs.Count;
+  LockGraphs;
+  for i:=0 to Graphs.Count-1 do Graph[i].SetBounds(MinX,i*H,W,H);
+  UnlockGraphs;
+end;
+
+procedure TFrameGroup.FrameConstrainedResize(Sender: TObject; var MinWidth,
+  MinHeight, MaxWidth, MaxHeight: Integer);
+var
+  F:TFrameGraph;
+begin
+  F:=Graph[0];
+  MinHeight:=Graphs.Count*F.Constraints.MinHeight+(Height-ClientHeight+2);
+  MinWidth:=PnlTools.Width+F.Constraints.MinWidth+(Width-ClientWidth+2);
+end;
+
+procedure TFrameGroup.SpdBtnScrollLockClick(Sender: TObject);
+begin
+  if SpyMode
+  then SynchronizeGraphs(LastScroll as TFrameGraph);
+end;
+
+procedure TFrameGroup.SynchronizeGraphs(L: TFrameGraph);
+var
+  i:Integer;
+  Graph:TFrameGraph;
+  D:TPoint;
+begin
+  if LockSynchronize then exit;
+  LockSynchronize:=True;
+  if L=nil then L:=Graphs[0];
+  for i:=0 to Graphs.Count-1 do begin
+    Graph:=Graphs[i];
+    if L<>Graph then begin
+      D:=Graph.View1.Delta;
+      D.X:=L.View1.Delta.X;
+      Graph.View1.Delta:=D;
+    end;
+  end;
+  LockSynchronize:=False;
+end;
+
+procedure TFrameGroup.TimerProc;
+var
+  i:Integer;
+  Graph:TFrameGraph;
+  FPGAlarmCnt:Integer;
+  NewAlarm,Alarm,NoData:Boolean;
+begin
+  LockGraphs;
+  FPGAlarmCnt:=0;
+  NoData:=False;
+  for i:=0 to Graphs.Count-1 do begin
+    Graph:=Graphs[i];
+    Graph.TimerProc;
+    if Graph.DDSAlarm then Inc(FPGAlarmCnt);
+    NoData:=NoData or Graph.DataNotChanged;
+    Graph.DDSAlarm:=False;
+  end;
+  UnlockGraphs;
+  if AlarmSingle
+  then Alarm:=(FPGAlarmCnt>0)
+  else Alarm:=FPGAlarmCnt=Graphs.Count;
+  Alarm:=UserAlarm or (Alarm or (NoData and AlarmNoData)) and (TimerCounter>1);
+  if Alarm or AlarmActive then begin
+    if AlarmConfirm then begin
+      AlarmConfirmed:=True;
+      AlarmConfirm:=False;
+    end
+    else begin
+      NewAlarm:=UserAlarm or not AlarmActive and Alarm;
+      UserAlarm:=False;
+      if NewAlarm then AlarmConfirmed:=False;
+      if not AlarmConfirmed then DDSSignal(True,NewAlarm);
+      AlarmActive:=True;
+    end;
+    if not Alarm and AlarmActive and AlarmConfirmed then begin
+      AlarmActive:=False;
+      AlarmConfirmed:=False;
+    end;
+  end;
+  Inc(TimerCounter);
+end;
+
+procedure TFrameGroup.LoadFromIniSection(Ini,Cfg: TIniFile;
+  const Section: String);
+
+  procedure SetActiveGraph(var AF:TFrameGraph; F:TFrameGraph; LA:Integer);
+  begin
+    AF:=F;
+    F.LabelActive:=LA;
+  end;
+
+var
+  Graph:TFrameGraph;
+  i,Cnt:Integer;
+  L,T,W,H,MinH:Integer;
+  FF:TPoint;
+  S:String;
+begin
+  Self.Section:=Section;
+  Caption:=Ini.ReadString(Section,'Caption','');
+  Cnt:=Ini.ReadInteger(Section,'SensorCount',0);
+  FF.x:=0;
+  FF.y:=Canvas.TextHeight('0');
+  // Read configuration
+  DDSLineLen:=Cfg.ReadInteger(Section,'DDSLineLen',50);
+  AlarmNoSound:=Cfg.ReadBool(Section,'AlarmNoSound',False);
+  AlarmSingle:=Cfg.ReadBool(Section,'AlarmSingle',True);
+  AlarmNoData:=Cfg.ReadBool(Section,'AlarmNoData',False);
+  AlarmSpeaker:=Cfg.ReadBool(Section,'AlarmSpeaker',True);
+  AlarmMedia:=Cfg.ReadBool(Section,'AlarmMedia',False);
+  MediaFile:=Cfg.ReadString(Section,'MediaFile','');
+  WaveSpeed:=Cfg.ReadFloat(Section,'WaveSpeed',1000);
+  WaveAlpha1:=Cfg.ReadFloat(Section,'WaveAlpha1',0.02);
+  WaveAlpha2:=Cfg.ReadFloat(Section,'WaveAlpha2',0.02);
+  TimeDelta:=Cfg.ReadFloat(Section,'TimeDelta',0.5);
+  L:=Cfg.ReadInteger(Section,'Left',Left);
+  T:=Cfg.ReadInteger(Section,'Top',Top);
+  W:=Cfg.ReadInteger(Section,'Width',Width);
+  H:=Cfg.ReadInteger(Section,'Height',Height);
+  MinH:=0;
+  for i:=1 to Cnt do begin
+    S:=Ini.ReadString(Section,Format('Sensor%.2d',[i]),'');
+    if S='' then continue;
+    Graph:=TFrameGraph.CreateFromIniSection(Self,Ini,Cfg,S);
+    Graph.Parent:=Self;
+    Graph.DDSLineLen:=DDSLineLen;
+    Graph.Name:='';
+    Graph.View1.FixedField:=FF;
+    Graph.View1.Buffer.Palette:=CreatePalette(TLogPalette(Pointer(Palette256)^));
+    Graph.View1ChangeViewState;
+    Graph.View1.UnlockRender;
+    Inc(MinH,Graph.Constraints.MinHeight);
+    Graphs.Add(Graph);
+  end;
+  Constraints.MinHeight:=MinH+(Height-ClientHeight)+2;
+  SetActiveGraph(ActiveGraph1,Self.Graph[Cnt-1],1);
+  SetActiveGraph(ActiveGraph2,Self.Graph[0],    2);
+  TimeCapacity:=1*dtOneMinute;
+  SetBounds(L,T,W,H);
+end;
+
+procedure TFrameGroup.SaveCfg(Cfg: TIniFile);
+var
+  i:Integer;
+  Graph:TFrameGraph;
+begin
+  Cfg.WriteInteger(Section,'DDSLineLen',DDSLineLen);
+  Cfg.WriteBool(Section,'AlarmNoSound',AlarmNoSound);
+  Cfg.WriteBool(Section,'AlarmSingle',AlarmSingle);
+  Cfg.WriteBool(Section,'AlarmNoData',AlarmNoData);
+  Cfg.WriteBool(Section,'AlarmSpeaker',AlarmSpeaker);
+  Cfg.WriteBool(Section,'AlarmMedia',AlarmMedia);
+  Cfg.WriteString(Section,'MediaFile',MediaFile);
+  Cfg.WriteFloat(Section,'WaveSpeed',WaveSpeed);
+  Cfg.WriteFloat(Section,'WaveAlpha1',WaveAlpha1);
+  Cfg.WriteFloat(Section,'WaveAlpha2',WaveAlpha2);
+  Cfg.WriteFloat(Section,'TimeDelta',TimeDelta);
+  for i:=0 to Graphs.Count-1 do begin
+    Graph:=Graphs[i];
+    Graph.SaveCfg(Cfg);
+  end;
+end;
+
+procedure TFrameGroup.LockGraphs;
+var
+  i:Integer;
+begin
+  for i:=0 to Graphs.Count-1 do Graph[i].View1.lockRender;
+end;
+
+procedure TFrameGroup.UnlockGraphs;
+var
+  i:Integer;
+begin
+  for i:=0 to Graphs.Count-1 do Graph[i].View1.unlockRender;
+end;
+
+procedure TFrameGroup.SpdBtnGeneratePipClick(Sender: TObject);
+var
+  P:TPoint;
+  F1,F2:TFrameGraph;
+begin
+  GetCursorPos(P);
+  GetActiveGraphs(F1,F2);
+  miCaption.Caption:='      Участок "'+F1.Caption+' - '+F2.Caption+'"      ';
+  pmenuGenPip.Popup(P.x,P.y);
+end;
+
+procedure GetPipFileTime(const Time:TDateTime;var PipTime:TPipFileTime);
+var
+  ST:TSystemTime;
+begin
+  DateTimeToSystemTime(Time,ST);
+  with PipTime do begin
+    Year:=ST.wYear-1900;
+    Month:=ST.wMonth;
+    Day:=ST.wDay;
+    Hour:=ST.wHour;
+    Min:=ST.wMinute;
+    Sec:=ST.wSecond;
+  end;
+end;
+
+function TFrameGroup.GeneratePipFile(StartDT, Len: TDateTime;
+  const PathTemplate: WideString):WideString;
+{
+begin
+  Result:='';
+end;
+}
+const
+  OutBufSize=1 shl 14;
+  OutBufMask=OutBufSize-1;
+  InBufSize=1 shl 15;
+  InBufMask=InBufSize-1;
+var
+  ID1,ID2:Integer;
+  F1,F2:TFrameGraph;
+  DT,NextDT:TDateTime;
+  PFT,PFTPeriod:TPipTime;
+  PipFile:File;
+  Path:WideString;
+  i,BlockSize,RecCount,nRec:Integer;
+  OneSecPipPeriod:Boolean;
+  H1,H2:TGPFHelper;
+  Buf:array [0..OutBufSize-1] of TPipFileRec;
+
+  function Period:TDateTime;
+  begin
+    Result:=F1.ADTrack.Period;
+  end;
+
+  procedure WriteDataToBuf;
+  var
+    j:Integer;
+  begin
+    j:=nRec and OutBufMask;
+    Buf[j].Time:=PFT;
+    H1.GetAvgData(Buf[j].F1,Buf[j].P1);
+    H2.GetAvgData(Buf[j].F2,Buf[j].P2);
+    if (Buf[j].F1<>0) or (Buf[j].F2<>0) then Inc(nRec);
+    if (nRec>0) and (nRec and OutBufMask=0)
+    then BlockWrite(PipFile,Buf,OutBufSize);
+  end;
+
+begin
+  Result:='';
+  StartDT:=Trunc(StartDT/dtOneSecond)*dtOneSecond;
+//  DT:=LastRecTime; if (StartDT+Len>DT) then Len:=DT-StartDT;
+  Len:=Trunc(Len/dtOneSecond)*dtOneSecond;
+  GetActiveGraphs(F1,F2);
+  ID1:=F1.ADTrack.TrackID;
+  ID2:=F2.ADTrack.TrackID;
+  applySubstitutions(PathTemplate,ID1,StartDT,Path);
+  //
+  if Period<dtOneSecond then begin
+    OneSecPipPeriod:=True;
+    GetPipFileTime(StartDT,PFT);
+    FillChar(PFTPeriod,SizeOf(PFTPeriod),0);
+    PFTPeriod.Sec:=1;
+  end
+  else OneSecPipPeriod:=False;
+  //
+  try
+    try
+      i:=Length(Path);
+      while (i>0) and (Path[i]<>'\') do Dec(i);
+      if i>1 then ForceDirectories(Copy(Path,1,i-1));
+      AssignFile(PipFile,Path);
+      Rewrite(PipFile,SizeOf(TPipFileRec));
+
+      RecCount:=Round(Len/Period);
+      NextDT:=StartDT+dtOneSecond*0.999;
+      DT:=NextDT;
+      H1.Zero; H2.Zero;
+      nRec:=0;
+
+      for i:=0 to RecCount-1 do begin
+        DT:=StartDT+i*Period;
+        if i and InBufMask=0 then begin
+          if i+InBufSize>RecCount
+          then BlockSize:=RecCount-i
+          else BlockSize:=InBufSize;
+          AM2.readRecords(ID1,DT,BlockSize,H1.Data);
+          AM2.readRecords(ID2,DT,BlockSize,H2.Data);
+        end;
+        H1.Process(i and InBufMask);
+        H2.Process(i and InBufMask);
+        if OneSecPipPeriod then begin
+          if DT>NextDT then begin
+            WriteDataToBuf;
+            NextPipTime(PFT,PFTPeriod);
+            NextDT:=StartDT+dtOneSecond*(nRec+0.999);
+          end;
+        end
+        else begin
+          GetPipFileTime(DT,PFT);
+          WriteDataToBuf;
+        end;
+      end;
+      if DT<NextDT then WriteDataToBuf;
+      if nRec and OutBufMask>0 then BlockWrite(PipFile,Buf,nRec and OutBufMask);
+    finally
+      CloseFile(PipFile);
+    end;
+    Result:=Path;
+  except
+    Application.MessageBox('Ошибка',PChar('Сбой при записи PIP-файла '+Path),MB_OK);
+  end;
+end;
+
+procedure TFrameGroup.miViewLastNMinutesPipClick(Sender: TObject);
+var
+  Interval:TDateTime;
+begin
+  Interval:=TComponent(Sender).Tag*dtOneMinute;
+  RunPipViewer(GeneratePipFile(LastRecTime-Interval, Interval, TmpPipFilePath));
+end;
+
+procedure TFrameGroup.RunPipViewer(const Params: String);
+var
+  i:Integer;
+  Path:String;
+begin
+  Path:=PipViewerPath[ActiveGraph.ADTrack.TrackID];
+  i:=Length(Path);
+  while (i>0) and (Path[i]<>'\') do Dec(i);
+  ShellExecute(Handle,'open',PChar(Path),PChar(Params),
+    PChar(Copy(Path,1,i-1)),SW_SHOWNORMAL);
+end;
+
+procedure TFrameGroup.miViewLastNthDayPipClick(Sender: TObject);
+begin
+  RunPipViewer(GeneratePipFile(Trunc(LastRecTime)-TComponent(Sender).Tag,
+    dtOneDay,TmpPipFilePath
+  ));
+end;
+
+procedure TFrameGroup.miViewPipAnyDayClick(Sender: TObject);
+var
+  Date:TDateTime;
+begin
+  if QueryDate(Date)
+  then RunPipViewer(GeneratePipFile(Trunc(Date),dtOneDay,TmpPipFilePath));
+end;
+
+procedure TFrameGroup.miRunPipViewerClick(Sender: TObject);
+begin
+  RunPipViewer('');
+end;
+
+
+constructor TFrameGroup.CreateFromIniSection(AOwner: TComponent;
+  Ini,Cfg: TIniFile; const Section: String);
+var
+  hSysMenu:Integer;
+begin
+  inherited Create(AOwner);
+  Name:='';
+  Graphs:=TList.Create;
+  Canvas:=TControlCanvas.Create;
+  Canvas.Control:=Self;
+  PnlTools.DoubleBuffered:=True;
+  LoadFromIniSection(Ini,Cfg,Section);
+  hSysMenu:=GetSystemMenu(Handle,False);
+  DeleteMenu(hSysMenu,SC_CLOSE,MF_BYCOMMAND);
+end;
+
+procedure TFrameGroup.SpdBtnOptionsClick(Sender: TObject);
+var
+  FPO:TGroupOptions;
+  MR:TModalResult;
+  G1,G2:TFrameGraph;
+begin
+  FPO:=TGroupOptions.Create(Self);
+  FPO.Caption:=Caption;
+  FPO.cbAlarmSingle.Checked:=AlarmSingle;
+  FPO.cbAlarmNoSound.Checked:=AlarmNoSound;
+  FPO.cbAlarmNoData.Checked:=AlarmNoData;
+  FPO.cbAlarmSpeaker.Checked:=AlarmSpeaker;
+  FPO.cbAlarmMedia.Checked:=AlarmMedia;
+  FPO.btnMediaFile.Caption:=MediaFile;
+  FPO.edWaveSpeed.Text:=Format('%g',[WaveSpeed]);
+  FPO.edAlpha1.Text:=Format('%g',[WaveAlpha1]);
+  FPO.edAlpha2.Text:=Format('%g',[WaveAlpha2]);
+  FPO.edDDSLineLen.Text:=Format('%d',[DDSLineLen]);
+//  FPO.PipeLength:=Abs(Graph[Graphs.Count-1].Kilometer-Graph[0].Kilometer);
+  if not SpyMode then begin
+    FPO.BtnCalcWaveSpeed.Enabled:=True;
+    G1:=ActiveGraph1;
+    G2:=ActiveGraph2;
+    FPO.BtnCalcAlpha1.Enabled:=(FormAnaliz<>nil) and (G1.Kilometer>G2.Kilometer);
+    FPO.BtnCalcAlpha2.Enabled:=(FormAnaliz<>nil) and (G1.Kilometer<G2.Kilometer);
+    FPO.CalcWaveSpeed:=CalculateWaveSpeed;
+  end;
+  repeat
+    MR:=FPO.ShowModal;
+    if MR<>mrCancel then begin
+      AlarmNoSound:=FPO.cbAlarmNoSound.Checked;
+      AlarmSingle:=FPO.cbAlarmSingle.Checked;
+      AlarmNoData:=FPO.cbAlarmNoData.Checked;
+      AlarmSpeaker:=FPO.cbAlarmSpeaker.Checked;
+      AlarmMedia:=FPO.cbAlarmMedia.Checked;
+      MediaFile:=FPO.btnMediaFile.Caption;
+      SetDDS_LL(FPO.DDSLineLen);
+      WaveSpeed:=FPO.WaveSpeed;
+      WaveAlpha1:=FPO.WaveAlpha1;
+      WaveAlpha2:=FPO.WaveAlpha2;
+    end;
+  until MR<>mrRetry;
+  FPO.Free;
+end;
+
+procedure TFrameGroup.SetDDS_LL(LL: Integer);
+var
+  i:Integer;
+  Graph:TFrameGraph;
+begin
+  DDSLineLen:=LL;
+  for i:=0 to Graphs.Count-1 do begin
+    Graph:=Graphs[i];
+    Graph.DDSLineLen:=LL;
+    Graph.DDSCheck;
+    Graph.View1ChangeViewState;
+  end;
+end;
+
+procedure TFrameGroup.DDSSignal(SignalOn, ReqLight: Boolean);
+var
+  Changed,Light:Boolean;
+begin
+  Changed:=SignalOn xor not SpdBtnROnGOn.Down;
+  SpdBtnROnGOn.Down:=not SignalOn;
+  SpdBtnROffGOn.Down:=not SignalOn;
+  if SignalOn then begin
+    Light:=SpdBtnROnGOn.Visible;
+    if ReqLight then Light:=True else Light:=not Light;
+    SpdBtnROnGOn.Visible:=Light;
+    SpdBtnROffGOn.Visible:=not Light;
+    if Light and not AlarmNoSound then begin
+      if AlarmSpeaker then begin
+        Windows.Beep(500,250);
+        MessageBeep(MB_ICONASTERISK);
+      end;
+      if AlarmMedia and (MediaFile<>'') then FormMain.PlayMedia(Self,MediaFile);
+    end;
+    if Changed then SpdBtnROnGOn.Hint:='Отключить сигнал';
+  end
+  else begin
+    if Changed then SpdBtnROnGOn.Hint:='Сигнализация';
+    if AlarmMedia then FormMain.StopMedia(Self);
+  end;
+  if Changed then SpdBtnROffGOn.Hint:=SpdBtnROnGOn.Hint;
+end;
+
+procedure TFrameGroup.SpdBtnSignalClick(Sender: TObject);
+var
+  SpdBtn:TSpeedButton absolute Sender;
+begin
+  AlarmConfirm:=True;
+  if AlarmActive then DDSSignal(False,False) else SpdBtn.Down:=True;
+end;
+
+procedure TFrameGroup.miViewPipAdvancedDrawItem(Sender: TObject;
+  ACanvas: TCanvas; ARect: TRect; State: TOwnerDrawState);
+begin
+  DrawHeaderMenuItem(TMenuItem(Sender),ACanvas,ARect,State);
+end;
+
+function TFrameGroup.QueryDate(var Date: TDateTime): Boolean;
+begin
+  Result:=False;
+  DateForm:=TDateForm.Create(Self);
+  DateForm.ShowModal;
+  if DateForm.ModalResult=mrOk then begin
+    Date:=DateForm.DateTimePicker.DateTime;
+    Result:=True;
+  end;
+  DateForm.Free;
+end;
+{
+procedure TFrameGroup.SetArcView(Time: TDateTime);
+var
+  i:Integer;
+begin
+  if SpyMode
+  then for i:=0 to Graphs.Count-1 do Graph[i].ArcEndTime:=Time
+  else ActiveGraph2.ArcEndTime:=Time;
+  if SpyMode then begin
+    ActSpyModeOff.Execute;
+    SpdBtnCalculation.Enabled:=True;
+  end;
+end;
+}
+procedure TFrameGroup.SpdBtnSetArcTimeClick(Sender: TObject);
+begin
+  FormDateTime:=TFormDateTime.Create(Self);
+//  FormDateTime.DatePicker.Date:=Int(LastRecTime);
+  FormDateTime.DatePicker.Date:=StrToDate('2002-11-04');
+  FormDateTime.TimePicker.Time:=StrToTime('11:17');
+  if FormDateTime.ShowModal=mrOk then begin
+    QueryArcView(
+      Int(FormDateTime.DatePicker.Date)+
+      Frac(FormDateTime.TimePicker.Time)+
+      TimeCapacity*0.5
+    );
+  end;
+  FormDateTime.Free;
+  FormDateTime:=nil;
+end;
+
+function TFrameGroup.Get_SpyMode: Boolean;
+begin
+  Result:=False;
+  if ActiveGraph<>nil
+  then Result:=ActiveGraph.SpyMode;
+end;
+
+function TFrameGroup.CalculateWaveSpeed: Double;
+var
+  FPG1,FPG2:TFrameGraph;
+begin
+  GetActiveGraphs(FPG1,FPG2);
+  try
+    Result:=Abs((FPG1.Kilometer-FPG2.Kilometer)/(FPG1.LabelTime-FPG2.LabelTime))*(dtOneSecond*1000){/Period};
+  except
+    Result:=0;
+  end;
+end;
+
+procedure TFrameGroup.CalculateDrainKm;
+var
+  Km1,Km2,MinKmX,KmX,MaxKmX,L:Double;
+  t1,dt:Double;
+  t:TDateTime;
+  w:Double;
+  FPG1,FPG2:TFrameGraph;
+  Comment:String;
+begin
+  GetActiveGraphs(FPG1,FPG2);
+  Km1:=FPG1.Kilometer;
+  Km2:=FPG2.Kilometer;
+  L:=Km2-Km1;
+  t1:=FPG1.LabelTime/dtOneSecond;
+  dt:=t1-FPG2.LabelTime/dtOneSecond;
+  w:=WaveSpeed*0.001;
+  MinKmX:=Km1+((dt-TimeDelta)*w+L)*0.5;
+  MaxKmX:=Km1+((dt+TimeDelta)*w+L)*0.5;
+  if MaxKmX<MinKmX then begin
+    KmX:=MaxKmX; MaxKmX:=MinKmX; MinKmX:=KmX;
+  end;
+  KmX:=(dt*w+L)*0.5;
+  t:=(t1-KmX/w)*dtOneSecond;
+  if (MaxKmX<Km1) or (Km2<MinKmX) then Comment:='***НЕКОРРЕКТНО***';
+  FormMessage:=TFormMessage.Create(Self);
+  FormMessage.Caption:='Результаты расчета';
+  FormMessage.Memo.Text:=
+    Format(
+      'Расчетное место : %s'#13#10+
+      '  %.1f км от начала участка'#13#10+
+      '  %.1f км НПП'#13#10#13#10,
+      [Comment,KmX,Km1+KmX]
+    )+
+    'Расчетное время : '+TimeToStr(t)+
+    Format(
+      #13#10#13#10'Участок "%s" - "%s"'#13#10+
+      '  длина %.1f км'#13#10+
+      '  от %.1f до %.1f км НПП'#13#10#13#10+
+      'Скорость распространения волны : %.1f м/с',
+      [FPG1.Caption,FPG2.Caption,Km2-Km1,Km1,Km2,WaveSpeed]
+    );
+  FormMessage.ShowModal;
+  FormMessage.Free;
+  FormMessage:=nil;
+end;
+
+procedure TFrameGroup.SpdBtnCalculationClick(Sender: TObject);
+begin
+  CalculateDrainKm;
+end;
+
+function TFrameGroup.Get_FPG(i: Integer): TFrameGraph;
+begin
+  Result:=Graphs[i];
+end;
+
+procedure TFrameGroup.miCopyClick(Sender: TObject);
+begin
+  Application.ProcessMessages;
+  CopyToClipboard(Canvas,ClientRect);
+end;
+
+procedure TFrameGroup.SpdBtnAlarmDblClick(Sender: TObject);
+begin
+  UserAlarm:=True;
+end;
+
+procedure TFrameGroup.GetActiveGraphs(var F1, F2: TFrameGraph);
+begin
+  if ActiveGraph1.Kilometer<ActiveGraph2.Kilometer then begin
+    F1:=ActiveGraph1; F2:=ActiveGraph2;
+  end
+  else begin
+    F1:=ActiveGraph2; F2:=ActiveGraph1;
+  end;
+end;
+
+function TFrameGroup.Get_LastRecTime: TDateTime;
+var
+  T1,T2:TDateTime;
+begin
+  T1:=ActiveGraph1.ADTrack.LastRecTime;
+  T2:=ActiveGraph2.ADTrack.LastRecTime;
+  if T1<T2 then Result:=T2 else Result:=T1;
+end;
+
+{ TGPFHelper }
+
+procedure TGPFHelper.GetAvgData(var F: Byte; var P: Single);
+const
+  Coeff=1024;
+  OneDivCoeff=1/Coeff;
+var
+  S:Single;
+  I:Integer absolute S;
+begin
+  if Cnt>0 then begin
+    F:=pfOkData; S:=Sum/Cnt;
+    Sum:=0; Cnt:=0; P:=S; Last:=S;
+  end
+  else begin
+    F:=0; P:=Last;
+  end;
+end;
+
+procedure TGPFHelper.Process(i:Integer);
+var
+  AD:TAnalogData;
+begin
+  TMySensor.GetAD(Data,i,AD);
+  if ValidAD(AD) then begin
+    Inc(Cnt); Sum:=Sum+AD.Value;
+  end;
+end;
+
+procedure TGPFHelper.Zero;
+begin
+  Cnt:=0; Data:=''; Last:=0; Sum:=0;
+end;
+
+procedure TFrameGroup.Set_TimeCapacity(const Value: TDateTime);
+var
+  i:Integer;
+begin
+  for i:=0 to Graphs.Count-1 do Graph[i].TimeCapacity:=Value;
+end;
+
+function TFrameGroup.Get_TimeCapacity: TDateTime;
+begin
+  Result:=ActiveGraph.TimeCapacity;
+end;
+
+destructor TFrameGroup.Destroy;
+begin
+  Graphs.Free;
+  Canvas.Free;
+  inherited;
+end;
+
+procedure TFrameGroup.Set_SpyMode(const Value: Boolean);
+var
+  i:Integer;
+  F:TFrameGraph;
+begin
+  LockGraphs;
+  for i:=0 to Graphs.Count-1 do begin
+    F:=Graph[i];
+    F.SpyMode:=Value;
+  end;
+  UnlockGraphs;
+  SpdBtnSpyMode.Down:=Value;
+  SpdBtnCalculation.Enabled:=not Value;
+end;
+
+function TFrameGroup.Get_ArcEndTime: TDateTime;
+begin
+  Result:=ActiveGraph.ArcEndTime;
+end;
+
+procedure TFrameGroup.Set_ArcEndTime(const Value: TDateTime);
+var
+  i:Integer;
+begin
+  if ScrollLock
+  then for i:=0 to Graphs.Count-1 do Graph[i].ArcEndTime:=Value
+  else ActiveGraph.ArcEndTime:=Value;
+end;
+
+function TFrameGroup.Get_ScrollLock: Boolean;
+begin
+  Result:=SpdBtnScrollLock.Down;
+end;
+
+function TFrameGroup.Get_SpyEndTime: TDateTime;
+var
+  i:Integer;
+  Tmp:TDateTime;
+begin
+  Result:=0;
+  for i:=0 to Graphs.Count-1 do begin
+    Tmp:=Graph[i].SpyEndTime;
+    if Result<Tmp then Result:=Tmp;
+  end;
+end;
+
+procedure TFrameGroup.FrameEnter(Sender: TObject);
+begin
+  TFormPipe(Parent).NotifyActivity(Self);
+  PnlTools.Color:=clYellow;
+end;
+
+procedure TFrameGroup.FrameExit(Sender: TObject);
+begin
+  PnlTools.Color:=clBlack;
+  ActiveGraph.OnExit(ActiveGraph);
+end;
+
+procedure TFrameGroup.FrameClick(Sender: TObject);
+begin
+  ActiveGraph.SetFocus;
+end;
+
+procedure TFrameGroup.Set_Negative(const Value: Boolean);
+var
+  i:Integer;
+begin
+  for i:=0 to Graphs.Count-1 do Graph[i].Negative:=Value;
+end;
+
+procedure TFrameGroup.NotifyActivity(Sender: TObject);
+var
+  F2,F1:TFrameGraph;
+  FG:TFrameGraph absolute Sender;
+begin
+  F2:=ActiveGraph2;
+  F1:=ActiveGraph1;
+  if FG<>F2 then begin
+    if FG<>F1 then begin
+      F1.LabelActive:=0;
+    end;
+    ActiveGraph1:=F2; F2.LabelActive:=1;
+    ActiveGraph2:=FG; FG.LabelActive:=2;
+    if not SpyMode then begin
+      F1.View1ChangeViewState;
+      F2.View1ChangeViewState;
+      FG.View1ChangeViewState;
+    end;
+  end;
+end;
+
+procedure TFrameGroup.QueryArcView(Time: TDateTime);
+begin
+  TFormPipe(Parent).QueryArcView(Time);
+end;
+
+procedure TFrameGroup.MyPaintTo(dc: HDC; X, Y: Integer);
+var
+  i:Integer;
+  G:TFrameGraph;
+begin
+  for i:=0 to Graphs.Count-1 do begin
+    G:=Graph[i];
+    G.MyPaintTo(dc,X,Y+G.Top);
+  end;
+end;
+
+function TFrameGroup.Get_ArcPipFilePath: String;
+begin
+  Result:=FormMain.GetArcPipFilePath;
+end;
+
+function TFrameGroup.Get_TmpPipFilePath: String;
+begin
+  Result:=FormMain.GetTmpPipFilePath;
+end;
+
+function TFrameGroup.Get_PipViewerPath(TrackID: Integer): String;
+begin
+  Result:=FormMain.GetPipViewerPath(TrackID);
+end;
+
+procedure TFrameGroup.miGeneratePipClick(Sender: TObject);
+var
+  Path:String;
+  Date:TDateTime;
+begin
+  case TComponent(Sender).Tag of
+    0: if not QueryDate(Date) then exit;
+    1: Date:=Trunc(LastRecTime)-1;
+  end;
+  Path:=GeneratePipFile(Trunc(Date),dtOneDay,ArcPipFilePath);
+  Application.MessageBox(PChar(Path),'Создан PIP-файл',MB_ICONINFORMATION or MB_OK);
+end;
+
+procedure TFrameGroup.AnyArcViewClick(Sender: TObject);
+var
+  DT:TDateTime;
+begin
+  Application.ProcessMessages;
+  if SpyMode
+  then DT:=SpyEndTime
+  else DT:=ArcEndTime+TimeCapacity*0.01*TComponent(Sender).Tag;
+  QueryArcView(DT);
+end;
+
+
+procedure TFrameGroup.SpdBtnSpyModeClick(Sender: TObject);
+begin
+  TFormPipe(Parent).miSpyMode.Click;
+end;
+
+procedure TFrameGroup.miAnyCapacityClick(Sender: TObject);
+begin
+  TFormPipe(Parent).miAnyCapacityClick(Sender);
+end;
+
+procedure TFrameGroup.miDecCapacityClick(Sender: TObject);
+begin
+  TFormPipe(Parent).miDecCapacityClick(Sender);
+end;
+
+procedure TFrameGroup.miIncCapacityClick(Sender: TObject);
+begin
+  TFormPipe(Parent).miIncCapacityClick(Sender);
+end;
+
+end.
+
+unit UFormAnaliz;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  ExtCtrls, StdCtrls,
+  Misc,UFrameGraph,DataTypes2,SensorTypes,UFormPipe,UWaveFormComputer;
+
+type
+  TFormAnaliz = class(TForm)
+    pbGraphs: TPaintBox;
+    pbCorrGraph: TPaintBox;
+    cbCorrBlock: TComboBox;
+    cbSetVisir: TCheckBox;
+    procedure FormCreate(Sender: TObject);
+    procedure pbCorrGraphPaint(Sender: TObject);
+    procedure pbGraphsPaint(Sender: TObject);
+    procedure FormResize(Sender: TObject);
+    procedure pbCorrGraphMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure miCalculateClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure cbCorrBlockChange(Sender: TObject);
+    procedure cbSetVisirClick(Sender: TObject);
+    procedure pbGraphsDblClick(Sender: TObject);
+  private
+    { Private declarations }
+    Pipe:TFormPipe;
+    Graph1,Graph2:TFrameGraph;
+    ReadyCnt:Integer;
+    MaxDT:Integer;
+    LabelTime1:TDateTime;
+    SrcData1,DrawData1:TArrayOfSingle;
+    SrcData2,DrawData2:TArrayOfSingle;
+    GoodnessGraph:TArrayOfSingle;
+    FVisir:Integer;
+    ChangeTimer:Cardinal;
+    SourceChanged:Boolean;
+    procedure InitRefresh;
+    procedure DoneRefresh;
+    procedure OnDataUpdate(Sender:TAnalogDataTrack; FromRec:Int64;
+      const Data:TADDynamicArray);
+    function NotReadyToDraw:Boolean;
+    procedure Set_Visir(const Value: Integer);
+    function CalcCorrelation(PRE,DT,BlockSize:Integer; WaveAlpha:Double):Double;
+    function GetCorrBlock: Integer;
+    procedure SetVisirOnMax;
+  private
+    wfc:TWaveFormComputer;
+    TmpWaveAlpha:Double;
+    WaveAlpha1,WaveAlpha2:Double;
+    function CalcCorr2:Double;
+    property Visir:Integer read FVisir write Set_Visir;
+    property CorrBlock:Integer read GetCorrBlock;
+  public
+    { Public declarations }
+    procedure TimerProc(Interval:Cardinal);
+    function IsShortCut(var Message: TWMKey): Boolean; override;
+    function CalcAlpha:Double;
+  end;
+
+var
+  FormAnaliz: TFormAnaliz;
+
+implementation
+
+{$R *.DFM}
+
+uses
+  Main,UFrameGroup,Minimize;
+
+const
+  MaxCorrBlock=120;
+  WaveAlpha=0.017457;//0.02122;
+  Alpha1=0.9;//0.8;
+  Alpha2=0.0;//0.7;
+  Preload=90+44;//21;// 90+Ln(0.01)/Ln(max(Alpha1,Alpha2));
+
+var
+  FuncOptimizationSubj:function:Double of object;
+
+function CallFuncOptimizationSubj:Double;
+begin
+  Result:=FuncOptimizationSubj;
+end;
+
+procedure FindMinMax(Data:PSingle; Count:Integer; var Min,Max:Single);
+var
+  Tmp:Float;
+begin
+  Min:=Data^; Max:=Data^; Dec(Count); Inc(Data);
+  while Count>0 do begin
+    Tmp:=Data^;
+    if Tmp<Min then Min:=Tmp
+    else if Max<Tmp then Max:=Tmp;
+    Inc(Data);
+    Dec(Count);
+  end;
+end;
+
+procedure DrawGraph(C:TCanvas; Data:PSingle; Count:Integer;
+  Min,Max:Single; W,H:Integer; DrawZeroLine:Boolean=False);
+var
+  OfsY,SclY,SclX:Single;
+  First:Boolean;
+  i,X,Y:Integer;
+  clrSaved:TColor;
+begin
+  if Min=Max then begin Min:=Min-1; Max:=Max+1; end;
+  SclY:=H/(Min-Max); OfsY:=-SclY*Max;
+  SclX:=W/(Count-1);
+  if DrawZeroLine and (Min<0) and (0<Max) then begin
+    clrSaved:=C.Pen.Color; C.Pen.Color:=clSilver;
+    Y:=Round(OfsY);
+    C.MoveTo(0,Y); C.LineTo(W-1,Y);
+    C.Pen.Color:=clrSaved;
+  end;
+  First:=True;
+  for i:=0 to Count-1 do begin
+    X:=Round(i*SclX);
+    Y:=Round(Data^*SclY+OfsY);
+    if First then C.MoveTo(X,Y)
+    else C.LineTo(X,Y);
+    First:=False;
+    Inc(Data);
+  end;
+end;
+
+//***** TFormAnaliz
+
+procedure TFormAnaliz.pbCorrGraphMouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  if Shift=[ssLeft] then begin
+    Visir:=Round(X*(Length(GoodnessGraph)-1)/pbGraphs.Width);
+    Invalidate;
+  end
+  else if Shift=[ssRight] then begin
+    if GoodnessGraph<>nil
+    then FillChar(GoodnessGraph[0],Length(GoodnessGraph)*SizeOf(GoodnessGraph[0]),0);
+  end;
+end;
+
+procedure TFormAnaliz.miCalculateClick(Sender: TObject);
+begin
+  if Pipe<>nil
+  then Pipe.ActiveGroup.SpdBtnCalculation.Click;
+end;
+
+procedure TFormAnaliz.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  FormMain.FlashAnalizForm;
+end;
+
+function TFormAnaliz.IsShortCut(var Message: TWMKey): Boolean;
+begin
+  Result:=(Pipe<>nil) and Pipe.menuSys.IsShortCut(Message) or
+    inherited IsShortCut(Message);
+end;
+
+procedure TFormAnaliz.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Pipe<>nil
+  then Pipe.FormKeyPress(Sender,Key);
+  Key:=#0;
+end;
+
+procedure TFormAnaliz.FormCreate(Sender: TObject);
+begin
+  DoubleBuffered:=True;
+  Left:=0;
+  Top:=GetSystemMetrics(SM_CYFULLSCREEN)+GetSystemMetrics(SM_CYCAPTION)-Height;
+  if Screen.ActiveForm is TFormPipe
+  then Pipe:=TFormPipe(Screen.ActiveForm);
+end;
+
+procedure TFormAnaliz.TimerProc(Interval:Cardinal);
+var
+  Group:TFrameGroup;
+  G1,G2:TFrameGraph;
+  W:Double;
+begin
+  if Screen.ActiveForm is TFormPipe
+  then Pipe:=TFormPipe(Screen.ActiveForm)
+  else if (Screen.ActiveForm<>Self) or (Pipe=nil)
+  then exit;
+  if Pipe.SpyMode then begin
+    if Visible then Hide;
+  end
+  else begin
+    Group:=Pipe.ActiveGroup;
+    G1:=Group.ActiveGraph2;
+    G2:=Group.ActiveGraph1;
+    if G1.Kilometer<G2.Kilometer then begin
+      WaveAlpha1:=Group.WaveAlpha1;
+      WaveAlpha2:=Group.WaveAlpha2;
+    end
+    else begin
+      WaveAlpha1:=Group.WaveAlpha2;
+      WaveAlpha2:=Group.WaveAlpha1;
+    end;
+    Inc(ChangeTimer,Interval);
+    if not Visible then Show;
+    if SourceChanged and (ChangeTimer>=250) then begin
+      W:=Group.WaveSpeed*0.001;
+      if W<=0 then W:=1.150;
+      MaxDT:=Round(Abs(G1.Kilometer-G2.Kilometer)/W*1.1);
+      ClientWidth:=Round(MaxDT)*2;
+      if MaxDT>0 then InitRefresh;
+      SourceChanged:=False;
+    end;
+    if (G1<>Graph1) or (G2<>Graph2) or (G1.LabelTime<>LabelTime1)
+    then begin
+      SourceChanged:=True; ChangeTimer:=0;
+      Graph1:=G1; Graph2:=G2;
+      LabelTime1:=G1.LabelTime;
+    end;
+  end;
+end;
+
+procedure TFormAnaliz.pbCorrGraphPaint(Sender: TObject);
+var
+  PB:TPaintBox absolute Sender;
+  C:TCanvas;
+  W,H,X:Integer;
+  R:TRect;
+  Min,Max,D:Single;
+begin
+  W:=PB.Width; H:=PB.Height;
+  C:=PB.Canvas;
+  R.Top:=0; R.Left:=0; R.Right:=W-1; R.Bottom:=H-1;
+  C.Brush.Color:=clWhite;
+  C.Brush.Style:=bsSolid;
+  C.FillRect(R);
+  if NotReadyToDraw then exit;
+  C.Pen.Color:=clRed;
+  X:=Round(W*Visir/(Length(GoodnessGraph)-1));
+  C.MoveTo(X,0); C.LineTo(X,H-1);
+  C.Pen.Color:=clBlack;
+  FindMinMax(@(GoodnessGraph[0]),Length(GoodnessGraph),Min,Max);
+//  {$IFDEF UseCorrelation}
+  if Max-Min<1 then begin
+    D:=(1-(Max-Min))*0.5;
+  end
+  else {.$ENDIF} D:=(Max-Min)*0.05;
+  DrawGraph(C,@(GoodnessGraph[0]),Length(GoodnessGraph),Min-D,Max+D,W,H,True);
+end;
+
+procedure TFormAnaliz.pbGraphsPaint(Sender: TObject);
+var
+  PB:TPaintBox absolute Sender;
+  C:TCanvas;
+  W,H,n:Integer;
+  R:TRect;
+{$IFNDEF _UseCorrelation}
+  Mn,Mx:Single;
+{$ENDIF}
+  Min,Max,D:Single;
+begin
+  W:=PB.Width; H:=PB.Height;
+  C:=PB.Canvas;
+  R.Top:=0; R.Left:=0; R.Right:=W-1; R.Bottom:=H-1;
+  C.Brush.Color:=clDkGray;
+  C.Brush.Style:=bsSolid;
+  C.FillRect(R);
+  if NotReadyToDraw then exit;
+  CalcCorrelation(0,Visir,CorrBlock,WaveAlpha);
+  wfc.GetDrawData(DrawData1,DrawData2);
+  n:=Length(DrawData1);// div 4;
+//  if n>60 then n:=60;
+{$IFDEF _UseCorrelation}
+  FindMinMax(@(DrawData1[0]),n,Min,Max); D:=(Max-Min)*0.05;
+  C.Pen.Color:=clAqua;
+  DrawGraph(C,@(DrawData1[0]),n,Min-D,Max+D,W,H);
+  FindMinMax(@(DrawData2[0]),n,Min,Max); D:=(Max-Min)*0.05;
+  C.Pen.Color:=clLime;
+  DrawGraph(C,@(DrawData2[0]),n,Min-D,Max+D,W,H);
+{$ELSE}
+{
+  FindMinMax(@(DrawData1[0]),n,Mn,Max);
+  FindMinMax(@(DrawData2[0]),n,Min,Mx);
+  if Mn<Min then Min:=Mn;
+  if Max<Mx then Max:=Mx;
+  D:=(Max-Min)*0.05;
+}
+  FindMinMax(@(DrawData1[0]),n,Min,Max);
+  D:=(Max-Min);
+//
+  Min:=Min-D; Max:=Max+D;
+  C.Pen.Color:=clAqua;
+  DrawGraph(C,@(DrawData1[0]),n,Min,Max,W,H);
+  C.Pen.Color:=clLime;
+  DrawGraph(C,@(DrawData2[0]),n,Min,Max,W,H);
+{$ENDIF}
+end;
+
+function TFormAnaliz.GetCorrBlock: Integer;
+begin
+  if cbCorrBlock.ItemIndex=-1 then cbCorrBlock.ItemIndex:=1;
+  Result:=StrToInt(cbCorrBlock.Text);
+end;
+
+procedure TFormAnaliz.FormResize(Sender: TObject);
+var
+  CH:Integer;
+begin
+  CH:=ClientHeight-cbCorrBlock.Height;
+  pbGraphs.Width:=ClientWidth;
+  pbGraphs.Height:=CH div 2;
+  pbCorrGraph.Width:=ClientWidth;
+  pbCorrGraph.Top:=pbGraphs.Top+pbGraphs.Height;
+  pbCorrGraph.Height:=CH-pbGraphs.Height;
+end;
+
+procedure TFormAnaliz.InitRefresh;
+var
+  StartRec:Int64;
+  Count:Integer;
+begin
+  ReadyCnt:=0;
+  StartRec:=Trunc(Graph1.LabelTime*Graph1.RecsPerDay)-Preload;
+  Count:=Preload+MaxCorrBlock;
+  Graph1.ADTrack.requestData(StartRec,Count,OnDataUpdate);
+  Count:=Preload+MaxDT+MaxCorrBlock;
+  Graph2.ADTrack.requestData(StartRec,Count,OnDataUpdate);
+end;
+
+procedure TFormAnaliz.OnDataUpdate(Sender: TAnalogDataTrack;
+  FromRec: Int64; const Data: TADDynamicArray);
+var
+  i:Integer;
+  Dst:TArrayOfSingle;
+  F1Value,F2Value,SValue:Single;
+  First:Boolean;
+begin
+  SetLength(Dst,Length(Data));
+  F1Value:=0; F2Value:=0; First:=True;
+  for i:=0 to High(Dst) do begin
+    if ValidAD(Data[i]) then begin
+      SValue:=Data[i].Value;
+      if First then begin
+        F1Value:=SValue; F2Value:=SValue; First:=False;
+      end
+      else begin
+        F1Value:=F1Value*Alpha1+SValue*(1-Alpha1);
+        F2Value:=F2Value*Alpha2+SValue*(1-Alpha2);
+      end;
+    end;
+    Dst[i]:=F2Value;//-F1Value;
+  end;
+  if Sender=Graph1.ADTrack
+  then begin SrcData1:=Dst; Inc(ReadyCnt); end
+  else if Sender=Graph2.ADTrack
+  then begin SrcData2:=Dst; Inc(ReadyCnt); end;
+  if ReadyCnt=2 then DoneRefresh;
+end;
+
+procedure TFormAnaliz.DoneRefresh;
+var
+  DT:Integer;
+  P,PS:Double;
+begin
+  SetLength(GoodnessGraph,MaxDT);
+  FillChar(GoodnessGraph[0],MaxDT*SizeOf(GoodnessGraph[0]),0);
+//  for DT:=0 to MaxDT-1 do GoodnessGraph[DT]:=CalcCorrelation(DT,CorrBlock,WaveAlpha);
+//{
+  P:=CorrBlock-1;
+  PS:=P*0.1;
+  if PS<1 then PS:=1;
+  while P>=0 do begin
+    for DT:=0 to MaxDT-1 do GoodnessGraph[DT]:=GoodnessGraph[DT]+
+      CalcCorrelation(Round(P),DT,CorrBlock,WaveAlpha);
+    P:=P-PS;
+  end;
+//}
+  if cbSetVisir.Checked then SetVisirOnMax;
+  Invalidate;
+end;
+
+function TFormAnaliz.NotReadyToDraw: Boolean;
+begin
+  Result:=(ReadyCnt<2) or (Length(GoodnessGraph)=0) or (Visir<0);
+end;
+
+procedure TFormAnaliz.Set_Visir(const Value: Integer);
+begin
+  FVisir := Value;
+  Graph2.LabelTime:=Graph1.LabelTime+FVisir*Graph1.Period;
+  Graph2.View1ChangeViewState;
+  Caption:=Format('Z[%d]=%.5f (Анализатор)',[FVisir,GoodnessGraph[FVisir]]);
+end;
+
+function TFormAnaliz.CalcCorrelation(PRE, DT, BlockSize:Integer; WaveAlpha:Double):Double;
+var
+  LdW:Single;
+begin
+  LdW:=(Graph2.Kilometer-Graph1.Kilometer) /
+    (TFrameGroup(Graph1.Parent).WaveSpeed * 0.001);
+  if LdW<0 then LdW:=-LdW;
+  wfc.Alpha1:=WaveAlpha1;
+  wfc.Alpha2:=WaveAlpha2;
+  wfc.Init(LdW,DT,@(SrcData1[Preload-PRE]),@(SrcData2[Preload-PRE+DT]),BlockSize);
+  Result:=wfc.CalcCorrelation;
+end;
+
+procedure TFormAnaliz.cbCorrBlockChange(Sender: TObject);
+begin
+  DoneRefresh;
+end;
+
+procedure TFormAnaliz.cbSetVisirClick(Sender: TObject);
+begin
+  if cbSetVisir.Checked then SetVisirOnMax;
+end;
+
+procedure TFormAnaliz.SetVisirOnMax;
+var
+  DT,DTbest:Integer;
+  Val,Best:Double;
+begin
+  Best:=GoodnessGraph[0];
+  DTbest:=0;
+  for DT:=1 to MaxDT-1 do begin
+    Val:=GoodnessGraph[DT];
+    if Best<Val then begin DTbest:=DT; Best:=Val; end;
+  end;
+  Visir:=DTbest;
+  Invalidate;
+end;
+
+procedure TFormAnaliz.pbGraphsDblClick(Sender: TObject);
+begin
+  Application.MessageBox( PChar(Format('Alpha = %g',[CalcAlpha])),
+    'Optimal Alpha calculated',MB_OK or MB_ICONINFORMATION );
+end;
+
+function TFormAnaliz.CalcCorr2: Double;
+begin
+  wfc.Alpha1:=TmpWaveAlpha;
+  wfc.Alpha2:=1;
+  Result:=-wfc.CalcCorrelation;
+end;
+
+function TFormAnaliz.CalcAlpha: Double;
+begin
+  // find optimal TmpWaveAlpha
+  FuncOptimizationSubj:=CalcCorr2;
+  MinimizeFunc(CallFuncOptimizationSubj,[@TmpWaveAlpha],[0.005],[0.95],1e-9);
+  Result:=TmpWaveAlpha;
+end;
+
+end.
+
+
+{$LONGSTRINGS ON}
+unit Main;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  Contnrs, IniFiles, Menus, ExtCtrls, DdhAppX, MPlayer,
+  DblGraphics, ArchManThd, Misc, UFormPipe, UFrameGroup;
+
+type
+  TPipe=class;
+
+  TFormMain = class(TForm)
+    Timer: TTimer;
+    AppExt: TDdhAppExt;
+    PopupMenu: TPopupMenu;
+    pmiExit: TMenuItem;
+    pmiAbout: TMenuItem;
+    pmiLine1: TMenuItem;
+    pmiHide: TMenuItem;
+    pmiShow: TMenuItem;
+    MediaPlayer: TMediaPlayer;
+    miGroupByPipe: TMenuItem;
+    miGroupByGroup: TMenuItem;
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure TimerTimer(Sender: TObject);
+    procedure pmiExitClick(Sender: TObject);
+    procedure pmiHideClick(Sender: TObject);
+    procedure pmiShowClick(Sender: TObject);
+    procedure AppExtTrayDefault(Sender: TObject);
+    procedure pmiAboutClick(Sender: TObject);
+    procedure miGroupByPipeClick(Sender: TObject);
+    procedure miGroupByGroupClick(Sender: TObject);
+    procedure AppExtDeactivate(Sender: TObject);
+  private
+    { Private declarations }
+    function Get_MediaFileNameI(i: Integer): AnsiString;
+    procedure Set_MediaFileNameI(i: Integer; const Value: AnsiString);
+    function Get_MediaFileNameO(O: Pointer): AnsiString;
+    procedure Set_MediaFileNameO(O: Pointer; const Value: AnsiString);
+    function Get_CurMediaFile: AnsiString;
+    function Get_CurMediaOwner: Pointer;
+    function Get_Pipe(i: Integer): TPipe;
+  protected
+    procedure EnablePipeForms(Enabled:Boolean);
+    procedure ShowPipeForms;
+    procedure HidePipeForms;
+    procedure ClosePipeForms;
+  public
+    { Public declarations }
+    Ini,Cfg:TIniFile;
+    Pipes:TObjectList;
+    PlayQueue:TByteStringList;
+    Alpha1,Alpha2:Double;
+    CorrBlockLen:Integer;
+    CorrelatorEnabled:Boolean;
+    procedure SaveCfg;
+    procedure PlayMedia(Owner:Pointer; FileName:String);
+    procedure StopMedia(Owner:Pointer);
+    procedure PlayNextMedia;
+    function GetArcPipFilePath:String;
+    function GetTmpPipFilePath:String;
+    function GetPipViewerPath(TrackID:Integer):String;
+    function IsShortCut(var Message: TWMKey): Boolean; override;
+    procedure FlashAnalizForm;
+    procedure CheckCorrelator(SpyMode:Boolean);
+  public
+    property MediaFileNameI[i:Integer]:AnsiString read Get_MediaFileNameI write Set_MediaFileNameI;
+    property MediaFileNameO[O:Pointer]:AnsiString read Get_MediaFileNameO write Set_MediaFileNameO;
+    property CurMediaFile:AnsiString read Get_CurMediaFile;
+    property CurMediaOwner:Pointer read Get_CurMediaOwner;
+    property Pipe[i:Integer]:TPipe read Get_Pipe;
+  end;
+
+  TPipe=class(TObject)
+  private
+    function Get_Group(i: Integer): TFrameGroup;
+  public
+    Section:String;
+    Caption:String;
+    Groups:TStringList;
+    constructor CreateFromIniSection(Ini,Cfg:TIniFile; Section:String);
+    procedure SaveCfg(Cfg:TIniFile);
+    destructor Destroy;override;
+    function CreatePipeForm:TFormPipe;
+    function CreateGroupForms:TFormPipe;
+    procedure TimerProc;
+    property Group[i:Integer]:TFrameGroup read Get_Group;
+  end;
+
+var
+  FormMain: TFormMain;
+
+function Palette256:PPalette;
+
+implementation
+
+uses
+  FileCtrl,DataTypes2,UFormAnaliz;
+
+{$R *.DFM}
+
+type
+  TFakedForm=class(TForm)
+  end;
+
+const
+  Section='Config';
+var
+  P:TPalette;
+
+function Palette256:PPalette;
+begin
+  Result:=@P;
+end;
+
+procedure SetMIVD(MI:TMenuItem; Flag:Boolean);
+begin
+  MI.Visible:=Flag;
+  MI.Default:=Flag;
+end;
+
+procedure TFormMain.FormCreate(Sender: TObject);
+
+  procedure InitPalette;
+  const
+    dC=255/3;
+  Var
+    r,g,b,i : Integer;
+  Begin
+    // init palette
+    FillChar(P,SizeOf(P),0);
+    i:=0;
+    for r:=0 to 3 do for g:=0 to 3 do for b:=0 to 3 do begin
+      P.Entry[i].R:=Round(r*dC);
+      P.Entry[i].G:=Round(g*dC);
+      P.Entry[i].B:=Round(b*dC);
+      Inc(i);
+    end;
+    P.Ver:=$300;
+    P.Num:=256;
+  End;
+
+  procedure SetupColorMixTbl;
+  const
+    scl=1/3;
+  var
+    i,j,k:Integer;
+    ir,ig,ib,w:Single;
+    kr,kg,kb:Integer;
+  begin
+    for i:=0 to 63 do begin
+      for j:=0 to 3 do begin
+        w:=j*scl;
+        ir:=(i shr 4) and 3 * w;
+        ig:=(i shr 2) and 3 * w;
+        ib:=(i shr 0) and 3 * w;
+        w:=(3-j)*scl;
+        for k:=0 to 63 do begin
+          kr:=Round( (k shr 4) and 3 * w + ir);
+          kg:=Round( (k shr 2) and 3 * w + ig);
+          kb:=Round( (k shr 0) and 3 * w + ib);
+          MixTbl[i,j,k]:=kr shl 4 + kg shl 2 + kb;
+        end;
+      end;
+    end;
+  end;
+
+var
+  Cnt:Integer;
+  i:Integer;
+  P:TPipe;
+  S:String;
+begin
+  InitFormattingVariables;
+  Randomize;
+  InitPalette;
+  SetupColorMixTbl;
+  Pipes:=TObjectList.Create;
+  PlayQueue:=TByteStringList.Create;
+  if ParamCount=0
+  then Ini:=TIniFile.Create(GetModuleFullName+'.ini')
+  else Ini:=TIniFile.Create(ExpandFileName(ParamStr(1)));
+  Cfg:=TIniFile.Create(ChangeFileExt(Ini.FileName,'.mcf'));
+// LoadFromIni
+  if not DataTypes2.Initialize(Ini.ReadString(Section,'Server','127.0.0.1'))
+  then begin
+    Halt(1);
+    Sleep(1000);
+  end;
+  AppExt.TrayHint:=Ini.ReadString(Section,'TrayHint','Monitor');
+  Application.Title:=Ini.ReadString(Section,'AppName','Monitor');
+  Alpha1:=Ini.ReadFloat(Section,'Alpha1',0.9);
+  Alpha2:=Ini.ReadFloat(Section,'Alpha2',0.95);
+  CorrBlockLen:=Ini.ReadInteger(Section,'CorrBlockLen',15);
+  //
+  Cnt:=Ini.ReadInteger(Section,'PipeCount',0);
+  for i:=1 to Cnt do begin
+    S:=Ini.ReadString(Section,Format('Pipe%.2d',[i]),'');
+    if S='' then continue;
+    P:=TPipe.CreateFromIniSection(Ini,Cfg,S);
+    if P<>nil then Pipes.Add(P);
+  end;
+  if Cfg.ReadBool(Section,'Grouping',True)
+  then miGroupByPipe.Click
+  else miGroupByGroup.Click;
+  ShowWindow(Application.Handle,0);
+end;
+
+procedure TFormMain.FormDestroy(Sender: TObject);
+var
+  i:Integer;
+begin
+  ClosePipeForms;
+  SaveCfg;
+  for i:=0 to PlayQueue.Count-1 do MediaFileNameI[i]:='';
+  PlayQueue.Free;
+  Pipes.Free;
+  Cfg.Free;
+  Ini.Free;
+  DataTypes2.Finalize;
+end;
+
+procedure TFormMain.SaveCfg;
+var
+  i:Integer;
+  P:TPipe;
+begin
+  Cfg.WriteBool(Section,'Grouping',not miGroupByPipe.Visible);
+  for i:=0 to Pipes.Count-1 do begin
+    P:=TPipe(Pipes[i]);
+    P.SaveCfg(Cfg);
+  end;
+end;
+
+procedure TFormMain.TimerTimer(Sender: TObject);
+var
+  i:Integer;
+begin
+  Timer.Tag:=Timer.Tag+Integer(Timer.Interval);
+  if Timer.Tag>=1000 then begin
+    Timer.Tag:=Timer.Tag mod 1000;
+    for i:=0 to Pipes.Count-1
+    do TPipe(Pipes[i]).TimerProc;
+  end;
+  if FormAnaliz<>nil then FormAnaliz.TimerProc(Timer.Interval);
+end;
+
+procedure TFormMain.pmiExitClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TFormMain.pmiHideClick(Sender: TObject);
+begin
+  HidePipeForms;
+  if FormAnaliz<>nil then FormAnaliz.Hide;
+  SetMIVD(pmiHide,False);
+  SetMIVD(pmiShow,True);
+end;
+
+procedure TFormMain.pmiShowClick(Sender: TObject);
+begin
+  if FormAnaliz<>nil then FormAnaliz.Show;
+  ShowPipeForms;
+  SetMIVD(pmiShow,False);
+  SetMIVD(pmiHide,True);
+end;
+
+procedure TFormMain.AppExtTrayDefault(Sender: TObject);
+begin
+  if pmiHide.Visible then begin
+    if Application.Active then pmiHide.Click;
+  end
+  else if pmiShow.Visible then pmiShow.Click;
+  SetForegroundWindow(Handle);
+end;
+
+procedure TFormMain.pmiAboutClick(Sender: TObject);
+var
+  Buf:array[0..65535] of Char;
+  lpFFI:^VS_FIXEDFILEINFO;
+  Len:Cardinal;
+  Ver:String;
+begin
+  if GetFileVersionInfo(PChar(GetModuleFullName+'.exe'),0,SizeOf(Buf),@Buf)
+    and VerQueryValue(@Buf,'\',Pointer(lpFFI),Len)
+  then begin
+    Ver:=
+      'Build № '+IntToStr(LowWord(lpFFI.dwFileVersionLS))+#13;
+  end
+  else Ver:=GetErrorMsg(GetLastError);
+  Application.MessageBox(
+    PChar(
+      'СКУ'#13#13+
+      'Монитор визуального контроля'#13+Ver+#13+
+      '(c) 2000-2006 "Компания Телекомнур", ООО'#13#13+
+      'e-mail: test@mail.rb.ru'
+    ),
+    'О программе',
+    MB_ICONINFORMATION or MB_OK or MB_TOPMOST);
+end;
+
+procedure TFormMain.PlayMedia(Owner:Pointer; FileName: String);
+begin
+  MediaFileNameO[Owner]:=FileName;
+  if MediaPlayer.Mode<>mpPlaying then PlayNextMedia;
+end;
+
+procedure TFormMain.StopMedia(Owner:Pointer);
+begin
+  MediaFileNameO[Owner]:='';
+  if (MediaPlayer.Mode=mpPlaying) and (Pointer(MediaPlayer.Tag)=Owner) then begin
+    MediaPlayer.Close;
+    MediaPlayer.Tag:=0;
+    PlayNextMedia;
+  end;
+end;
+
+function TFormMain.Get_MediaFileNameI(i: Integer): AnsiString;
+begin
+  Result:=AnsiString(PlayQueue.Objects[i]);
+end;
+
+function TFormMain.Get_MediaFileNameO(O: Pointer): AnsiString;
+var
+  i:Integer;
+  S:String;
+begin
+  SetLength(S,4);
+  Move(O,S[1],4);
+  i:=PlayQueue.IndexOf(S);
+  if i=-1 then Result:='' else Result:=MediaFileNameI[i];
+end;
+
+procedure TFormMain.Set_MediaFileNameI(i: Integer;
+  const Value: AnsiString);
+begin
+  PlayQueue.Objects[i]:=TObject(Value);
+end;
+
+procedure TFormMain.Set_MediaFileNameO(O: Pointer;
+  const Value: AnsiString);
+var
+  i:Integer;
+  S:String;
+begin
+  SetLength(S,4);
+  Move(O,S[1],4);
+  i:=PlayQueue.IndexOf(S);
+  if i=-1 then PlayQueue.AddObject(S,TObject(Value))
+  else MediaFileNameI[i]:=Value;
+end;
+
+function TFormMain.Get_CurMediaFile: AnsiString;
+begin
+  Result:=MediaFileNameI[0];
+end;
+
+procedure TFormMain.PlayNextMedia;
+var
+  i:Integer;
+  T:TObject;
+  S:String;
+begin
+  i:=PlayQueue.Count-1;
+  repeat
+    Dec(i);
+    S:=PlayQueue[0]; T:=PlayQueue.Objects[0]; PlayQueue.Delete(0);
+    PlayQueue.AddObject(S,T);
+  until (i<=0) or (CurMediaFile<>'');
+  if (CurMediaFile='') or (MediaPlayer.Mode=mpPlaying) then exit;
+  try
+    MediaPlayer.Close;
+    MediaPlayer.Tag := Integer(CurMediaOwner);
+    MediaPlayer.FileName := CurMediaFile;
+    MediaPlayer.Open;
+    MediaPlayer.Play;
+  except
+  end;
+end;
+
+function TFormMain.Get_CurMediaOwner: Pointer;
+begin
+  Move(PlayQueue[0][1],Result,4);
+end;
+
+procedure TFormMain.ClosePipeForms;
+var
+  i:Integer;
+  C:TComponent;
+  PF:TFormPipe absolute C;
+begin
+  HidePipeForms;
+  for i:=ComponentCount-1 downto 0 do begin
+    C:=Components[i];
+    if C is TFormPipe then begin
+      PF.SaveCfg(Cfg);
+      PF.Free;
+    end;
+  end;
+end;
+
+{ TPipe }
+
+destructor TPipe.Destroy;
+var
+  i:Integer;
+begin
+  for i:=0 to Groups.Count-1 do Group[i].Free;
+  Groups.Free;
+  inherited;
+end;
+
+constructor TPipe.CreateFromIniSection(Ini,Cfg: TIniFile; Section: String);
+var
+  i:Integer;
+  S:String;
+  PipeIni:TIniFile;
+  G:TFrameGroup;
+begin
+  inherited Create;
+  Self.Section:=Section;
+  Groups:=TStringList.Create;
+  Caption:=Ini.ReadString(Section,'Caption','НПП');
+  PipeIni:=TIniFile.Create(Ini.ReadString(Section,'Ini','NPP_'+Section));
+  try
+    for i:=1 to Ini.ReadInteger(Section,'GroupCount',0) do begin
+      S:=Ini.ReadString(Section,Format('Group%.2d',[i]),'');
+      if S='' then continue;
+      G:=TFrameGroup.CreateFromIniSection(FormMain,PipeIni,Cfg,S);
+      if G<>nil then Groups.AddObject(S,G);
+    end;
+  finally
+    PipeIni.Free;
+  end;
+end;
+
+procedure TPipe.SaveCfg(Cfg: TIniFile);
+var
+  i:Integer;
+begin
+  for i:=0 to Groups.Count-1 do Group[i].SaveCfg(Cfg);
+end;
+
+function TPipe.CreatePipeForm:TFormPipe;
+var
+  i:Integer;
+begin
+  Result:=TFormPipe.CreateFromIniSection(FormMain,FormMain.Cfg,Section);
+  for i:=0 to Groups.Count-1
+  do Result.InsertGroup(Group[i]);
+  Result.Caption:=Caption;
+end;
+
+procedure TPipe.TimerProc;
+var
+  i:Integer;
+begin
+  for i:=0 to Groups.Count-1
+  do Group[i].TimerProc;
+end;
+
+function TPipe.Get_Group(i: Integer): TFrameGroup;
+begin
+  Result:=TFrameGroup(Groups.Objects[i]);
+end;
+
+procedure TFormMain.miGroupByPipeClick(Sender: TObject);
+var
+  i:Integer;
+begin
+  miGroupByPipe.Visible:=False; miGroupByPipe.Enabled:=False;
+  miGroupByGroup.Visible:=True; miGroupByGroup.Enabled:=True;
+  ClosePipeForms;
+  for i:=0 to Pipes.Count-1
+  do Pipe[i].CreatePipeForm;
+  pmiShow.Click;
+end;
+
+procedure TFormMain.miGroupByGroupClick(Sender: TObject);
+var
+  i:Integer;
+begin
+  miGroupByPipe.Visible:=True;   miGroupByPipe.Enabled:=True;
+  miGroupByGroup.Visible:=False; miGroupByGroup.Enabled:=False;
+  ClosePipeForms;
+  for i:=0 to Pipes.Count-1
+  do Pipe[i].CreateGroupForms;
+  pmiShow.Click;
+end;
+
+function TFormMain.Get_Pipe(i: Integer): TPipe;
+begin
+  Result:=TPipe(Pipes[i]);
+end;
+
+function TPipe.CreateGroupForms:TFormPipe;
+var
+  i:Integer;
+begin
+  Result:=nil;
+  for i:=0 to Groups.Count-1 do begin
+    Result:=TFormPipe.CreateFromIniSection(FormMain,FormMain.Cfg,Groups[i]);
+    Result.InsertGroup(Group[i]);
+    Result.Caption:=Group[i].Caption;
+  end;
+end;
+
+procedure TFormMain.EnablePipeForms(Enabled: Boolean);
+var
+  i:Integer;
+begin
+  for i:=0 to ComponentCount-1 do
+    if Components[i] is TFormPipe
+    then TFormPipe(Components[i]).Enabled:=Enabled;
+end;
+
+procedure TFormMain.HidePipeForms;
+var
+  i:Integer;
+begin
+  EnablePipeForms(False);
+  for i:=0 to ComponentCount-1 do
+    if Components[i] is TFormPipe
+    then TFormPipe(Components[i]).Hide;
+end;
+
+procedure TFormMain.ShowPipeForms;
+var
+  i:Integer;
+begin
+  for i:=0 to ComponentCount-1 do
+    if Components[i] is TFormPipe
+    then TFormPipe(Components[i]).Show;
+  EnablePipeForms(True);
+  SetZOrder(True);
+end;
+
+procedure TFormMain.AppExtDeactivate(Sender: TObject);
+var
+  A:TForm;
+begin
+  A:=Screen.ActiveForm;
+  if (A<>nil) and Assigned(A.OnDeactivate)
+  then A.OnDeactivate(A);
+end;
+
+function TFormMain.GetArcPipFilePath: String;
+begin
+  Result:=Ini.ReadString(Section,'ArcPipFile',
+    'C:\TEMP\PIP\%NPP_ID%%SectID%_%Year%_%Month%_%Day%.pip');
+end;
+
+function TFormMain.GetPipViewerPath(TrackID: Integer): String;
+var
+  i:Integer;
+  W:WideString;
+  SR:TSearchRec;
+  ValidPV:Boolean;
+  SrcPVFile,PVFile,PVPath:String;
+  SrcPVSize,PVSize:Integer;
+  Src,Dst:TFileStream;
+  ErrMsg:String;
+begin
+  ErrMsg:='';
+  // Получаем в SrcPVFile путь и имя исходного файла просмотрщика архивов
+  SrcPVFile:=Ini.ReadString(Section,'SrcPipViewer','C:\SKU\pipview.exe');
+  // Считываем размер файла SrcPVFile (0, если файл не существует)
+  if FindFirst(SrcPVFile,faAnyFile,SR)=0
+  then SrcPVSize:=SR.Size
+  else SrcPVSize:=-1;
+  FindClose(SR);
+  // Получаем в PVFile путь и имя файла просмотрщика архивов
+  AM2.applySubstitutions(
+    Ini.ReadString(Section,'PipViewer','C:\TEMP\PIP\pv_%NPP_ID%%SectID%.exe'),
+    TrackID,Now,W
+  );
+  PVFile:=W;
+  // Получаем результат проверки файла PVFile в переменной ValidPV
+  // (Суть проверки: файл существует и размер совпадает с размером SrcPVFile)
+  ValidPV:=False;
+  if FindFirst(PVFile,faReadOnly or faHidden or faSysFile or faArchive,SR)=0
+  then begin
+    PVSize:=SR.Size;
+    ValidPV:=(SrcPVSize<0) or (PVSize=SrcPVSize);
+  end
+  else PVSize:=-1;
+  FindClose(SR);
+  if not ValidPV then begin
+    i:=Length(PVFile);
+    while (i>0) and (PVFile[i]<>'\') do Dec(i);
+    PVPath:=Copy(PVFile,1,i-1);
+    if not ForceDirectories(PVPath)
+    then ErrMsg:='Не могу создать структуру каталогов'#13+PVPath
+    else begin
+      try
+        Src:=TFileStream.Create(SrcPVFile,fmOpenRead);
+        try
+          try
+            if PVSize<0
+            then Dst:=TFileStream.Create(PVFile,fmCreate)
+            else Dst:=TFileStream.Create(PVFile,fmOpenWrite);
+            try
+              try
+                Dst.CopyFrom(Src,Src.Size);
+              except
+                ErrMsg:='Не могу скопировать файл'#13+SrcPVFile+
+                  #13'в файл'#13+PVFile;
+              end;
+            finally
+              Dst.Free;
+            end
+          except
+            ErrMsg:='Ну могу создать файл'#13+PVFile;
+          end;
+        finally
+          Src.Free;
+        end;
+      except
+        ErrMsg:='Не могу открыть исходный файл'#13+SrcPVFile;
+      end;
+    end;
+  end;
+  if ErrMsg<>'' then begin
+    Application.MessageBox(PChar(ErrMsg),
+      'Ошибка при запуске просмотрщика архивов', MB_OK or MB_ICONERROR
+    );
+    Result:='';
+  end
+  else Result:=PVFile;
+end;
+
+function TFormMain.GetTmpPipFilePath: String;
+begin
+  Result:=Ini.ReadString(Section,'TmpPipFile',
+    'C:\TEMP\PIP\Temp_%NPP_ID%%SectID%.pip');
+end;
+
+function TFormMain.IsShortCut(var Message: TWMKey): Boolean;
+begin
+  Result:=PopupMenu.IsShortCut(Message) or inherited IsShortCut(Message);
+end;
+
+procedure TFormMain.FlashAnalizForm;
+begin
+  if FormAnaliz=nil
+  then FormAnaliz:=TFormAnaliz.Create(Self)
+  else begin
+    FormAnaliz.Free;
+    FormAnaliz:=nil;
+  end;
+  CorrelatorEnabled:=FormAnaliz<>nil;
+end;
+
+procedure TFormMain.CheckCorrelator(SpyMode: Boolean);
+var
+  SCE:Boolean;
+begin
+  SCE:=CorrelatorEnabled;
+  if (CorrelatorEnabled and not SpyMode) xor (FormAnaliz<>nil)
+  then FlashAnalizForm;
+  CorrelatorEnabled:=SCE;
+end;
+
+end.
+
+//************************************************
+//*
+//* Поиск минимума функции нескольких переменных
+//*
+//* Что-то вроде градиентного спуска
+//*
+//************************************************
+unit Minimize;
+
+interface
+
+uses Math;
+
+type
+  TDoubleFunction=function:Double;
+  PDouble=^Double;
+
+procedure MinimizeFunc(Func:TDoubleFunction;
+  X:array of PDouble; const Xmin,Xmax:array of Double;
+  Epsilon:Double; MaxIterations:Integer=1 shl 12);
+
+implementation
+
+procedure MinimizeFunc;
+var
+  i,Count:Integer;
+  Min,Value,Tmp,StepLen,Alpha:Double;
+  Step,OldX:array of Double;
+  Iteration:LongInt;
+  Flag:Boolean;
+  h:Double;
+begin
+  Count:=Length(X);
+  SetLength(Step,Count);
+  SetLength(OldX,Count);
+  Flag:=True;
+  Min:=1.7E+308;
+  { Откуда считать, ищем Монте-Карлом :) }
+  for Iteration:=0 to MaxIterations div 2 do begin
+    for i:=0 to Count-1 do X[i]^:=Xmin[i]+Random*(Xmax[i]-Xmin[i]);
+    Value:=Func;
+    if {IsAN(Value) and} (Flag or (Value<Min)) then begin
+      for i:=0 to Count-1 do OldX[i]:=X[i]^;
+      Min:=Value;
+      Flag:=False;
+    end;
+  end;
+  if Flag
+  then for i:=0 to Count-1 do OldX[i]:=0;
+  {Поехали}
+  for i:=0 to Count-1 do X[i]^:=OldX[i];
+//  Value:=Min;
+  {Счетчик итераций предназначен на случай зацикливания}
+  Iteration:=MaxIterations;
+  {Первоначальная длина шага}
+  Alpha:=1;
+  repeat
+    Dec(Iteration);
+    {Приближенное вычисление градиента (что-то вроде направления шага)}
+    StepLen:=0;
+    for i:=0 to Count-1 do begin
+      h:=(Xmax[i]-Xmin[i])*0.01*Alpha;
+      OldX[i]:=X[i]^; X[i]^:=OldX[i]+h;
+      Value:=Func;
+      if Min<>Value
+      then Tmp:=h/(Min-Value)
+      else Tmp:=h;
+      StepLen:=StepLen+Tmp*Tmp;
+      Step[i]:=Tmp;
+      X[i]^:=OldX[i];
+    end;
+    StepLen:=Sqrt(StepLen);
+    {Делаем шаг}
+    for i:=0 to Count-1 do begin
+      Tmp:=X[i]^+Step[i]*Alpha;
+      if Tmp<Xmin[i] then Tmp:=Xmin[i]
+      else if Xmax[i]<Tmp then Tmp:=Xmax[i];
+      X[i]^:=Tmp;
+    end;
+    {Вычисляем значение функции после шага}
+    Value:=Func;
+    if {IsAN(Value) and} (Value<Min)
+    then Min:=Value
+    else begin {undo step}
+      for i:=0 to Count-1 do X[i]^:=OldX[i];
+      Alpha:=0.618*Alpha;
+    end;
+    {Если увеличилось, то поворачиваем назад и уменьшаем длину шага}
+    {Пока длина шага не станет очень маленькой или
+     не превысится допустимое число итераций}
+  until (Alpha*StepLen<Epsilon)or(Iteration<=0);
+  for i:=0 to Count-1 do if Step[i]=0 then X[i]^:=0;
+end;
+
+end.
+
+unit UGroupOptions;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls,Misc,Math;
+
+type
+  TGroupOptions = class(TForm)
+    gbDDS: TGroupBox;
+    BtnOk: TButton;
+    BtnCancel: TButton;
+    BtnApply: TButton;
+    stWaveSpeed: TStaticText;
+    edWaveSpeed: TEdit;
+    BtnCalcWaveSpeed: TButton;
+    stLineLen: TStaticText;
+    edDDSLineLen: TEdit;
+    gbAlarm: TGroupBox;
+    cbAlarmSingle: TCheckBox;
+    cbAlarmNoSound: TCheckBox;
+    cbAlarmNoData: TCheckBox;
+    cbAlarmSpeaker: TCheckBox;
+    cbAlarmMedia: TCheckBox;
+    btnMediaFile: TButton;
+    OpenDialog: TOpenDialog;
+    lblAlpha1: TLabel;
+    edAlpha1: TEdit;
+    lblAlpha2: TLabel;
+    edAlpha2: TEdit;
+    BtnCalcAlpha1: TButton;
+    BtnCalcAlpha2: TButton;
+    procedure BtnOkClick(Sender: TObject);
+    procedure BtnApplyClick(Sender: TObject);
+    procedure BtnCalcWaveSpeedClick(Sender: TObject);
+    procedure btnMediaFileClick(Sender: TObject);
+    procedure BtnCalcAlpha1Click(Sender: TObject);
+    procedure BtnCalcAlpha2Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    DDSLineLen:Integer;
+    CalcWaveSpeed:Double;
+    WaveSpeed,WaveAlpha1,WaveAlpha2:Double;
+    function Validate:Boolean;
+  end;
+
+implementation
+
+uses UFrameGroup,UFormAnaliz;
+
+{$R *.DFM}
+
+{ TFormPipeOptions }
+
+function TGroupOptions.Validate: Boolean;
+var
+  AC:TWinControl;
+begin
+  Result:=False;
+  AC:=ActiveControl;
+  try
+    DDSLineLen:=StrToInt(edDDSLineLen.Text);
+    if DDSLineLen<2
+    then ErrorMsg('Длина ограничивающих линий должна быть не меньше 2 сек.');
+  except
+    edDDSLineLen.SetFocus;
+    exit;
+  end;
+  try
+    CheckMinMax(WaveSpeed,1,99999,edWaveSpeed);
+    CheckMinMax(WaveAlpha1,0,0.95,edAlpha1);
+    CheckMinMax(WaveAlpha2,0,0.95,edAlpha2);
+  except
+    exit;
+  end;
+  ActiveControl:=AC;
+  Result:=True;
+end;
+
+procedure TGroupOptions.BtnOkClick(Sender: TObject);
+begin
+  if Validate then ModalResult:=mrOk;
+end;
+
+procedure TGroupOptions.BtnApplyClick(Sender: TObject);
+begin
+  if Validate then ModalResult:=mrRetry;
+end;
+
+procedure TGroupOptions.BtnCalcWaveSpeedClick(Sender: TObject);
+begin
+  edWaveSpeed.Text:=Format('%g',[CalcWaveSpeed]);
+end;
+
+procedure TGroupOptions.btnMediaFileClick(Sender: TObject);
+begin
+  if OpenDialog.Execute then begin
+    btnMediaFile.Caption:=OpenDialog.FileName;
+    cbAlarmMedia.Checked:=True;
+  end;
+end;
+
+procedure TGroupOptions.BtnCalcAlpha1Click(Sender: TObject);
+begin
+  edAlpha1.Text:=Format('%g',[FormAnaliz.CalcAlpha]);
+end;
+
+procedure TGroupOptions.BtnCalcAlpha2Click(Sender: TObject);
+begin
+  edAlpha2.Text:=Format('%g',[FormAnaliz.CalcAlpha]);
+end;
+
+end.
+
+unit UFormPipe;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Math,
+  Dialogs, Buttons, ExtCtrls , UFrameGroup, SensorTypes,
+  IniFiles, Misc, ArchManThd, Menus, DataTypes, DataTypes2, ShellAPI, FileCtrl,
+  SyncObjs, DblGraphics, StdCtrls, MessageForm, ActnList;
+
+type
+  TFormPipe = class(TForm)
+    Bevel: TBevel;
+    menuSys: TPopupMenu;
+    miCapacity: TMenuItem;
+    miCap001: TMenuItem;
+    miCap005: TMenuItem;
+    miCap015: TMenuItem;
+    miCap030: TMenuItem;
+    miCap060: TMenuItem;
+    miCap120: TMenuItem;
+    miCap240: TMenuItem;
+    miScrollLock: TMenuItem;
+    miSpyMode: TMenuItem;
+    miImage: TMenuItem;
+    miCopy: TMenuItem;
+    miNegative: TMenuItem;
+    miMode: TMenuItem;
+    miDecCapacity: TMenuItem;
+    miIncCapacity: TMenuItem;
+    miCapSep1: TMenuItem;
+    miCopyForPrinting: TMenuItem;
+    miGraphOption: TMenuItem;
+    miGroupOptions: TMenuItem;
+    BtnFake: TButton;
+    miArcView: TMenuItem;
+    miArcViewDec010: TMenuItem;
+    miArcViewDec001: TMenuItem;
+    miArcViewDec100: TMenuItem;
+    miArcViewDec005: TMenuItem;
+    miArcViewDec050: TMenuItem;
+    miArcViewDec500: TMenuItem;
+    miArcViewInc005: TMenuItem;
+    miArcViewInc010: TMenuItem;
+    miArcViewInc050: TMenuItem;
+    miArcViewInc100: TMenuItem;
+    miArcViewInc500: TMenuItem;
+    miArcViewInc001: TMenuItem;
+    miCalculate: TMenuItem;
+    miSetArcTime: TMenuItem;
+    miVertScale: TMenuItem;
+    miZoomInV: TMenuItem;
+    miZoomOutV: TMenuItem;
+    miAnalizForm: TMenuItem;
+    procedure FormResize(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure FormConstrainedResize(Sender: TObject; var MinWidth,
+      MinHeight, MaxWidth, MaxHeight: Integer);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure miCopyClick(Sender: TObject);
+    procedure miAnyCapacityClick(Sender: TObject);
+    procedure miScrollLockClick(Sender: TObject);
+    procedure AnyArcViewClick(Sender: TObject);
+    procedure miSpyModeClick(Sender: TObject);
+    procedure miNegativeClick(Sender: TObject);
+    procedure miDecCapacityClick(Sender: TObject);
+    procedure miIncCapacityClick(Sender: TObject);
+    procedure miGraphOptionClick(Sender: TObject);
+    procedure miGroupOptionsClick(Sender: TObject);
+    procedure FormDeactivate(Sender: TObject);
+    procedure miCalculateClick(Sender: TObject);
+    procedure FormMouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure miSetArcTimeClick(Sender: TObject);
+    procedure miZoomOutVClick(Sender: TObject);
+    procedure miZoomInVClick(Sender: TObject);
+    procedure miAnalizFormClick(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+  //***** IMonitorMaster
+  public
+    procedure QueryArcView(Time:TDateTime);
+    procedure NotifyActivity(Sender:TObject);
+  //***** IMonitorSlave
+  private
+    procedure Set_ArcEndTime(const Value:TDateTime);
+    function Get_ArcEndTime:TDateTime;
+    function Get_SpyEndTime: TDateTime;
+    procedure Set_SpyMode(const Value:Boolean);
+    function Get_SpyMode:Boolean;
+    procedure Set_TimeCapacity(const Value: TDateTime);
+    function Get_TimeCapacity: TDateTime;
+    procedure Set_Negative(const Value:Boolean);
+    function Get_Negative: Boolean;
+  public
+    property SpyMode:Boolean read Get_SpyMode write Set_SpyMode;
+    property ArcEndTime:TDateTime read Get_ArcEndTime write Set_ArcEndTime;
+    property SpyEndTime:TDateTime read Get_SpyEndTime;
+    property TimeCapacity:TDateTime read Get_TimeCapacity write Set_TimeCapacity;
+    property Negative:Boolean read Get_Negative write Set_Negative;
+    procedure TimerProc;
+  //*****
+  private
+    { Private declarations }
+    function Get_Group(i: Integer): TFrameGroup;
+    function Get_ScrollLock: Boolean;
+    procedure Set_ScrollLock(const Value: Boolean);
+  protected
+    FTimeCapacity:TDateTime;
+    Groups:TList;
+    Section:String;
+    procedure ScrollArcView(Step: TDateTime);
+    procedure LockGroups;
+    procedure UnlockGroups;
+    procedure WMSysCommand(var Message:TWMSysCommand);message WM_SYSCOMMAND;
+    property Group[i:Integer]:TFrameGroup read Get_Group;
+    property ScrollLock:Boolean read Get_ScrollLock write Set_ScrollLock;
+  public
+    { Public declarations }
+    ActiveGroup:TFrameGroup;
+    procedure SaveCfg(Cfg:TIniFile);
+    constructor CreateFromIniSection(AOwner:TComponent; Cfg:TIniFile;
+      const Section:String);
+    procedure InsertGroup(G:TFrameGroup);
+    function IsShortCut(var Message: TWMKey): Boolean; override;
+    procedure CopyToClipboard;
+  end;
+
+var
+  FormPipe: TFormPipe;
+
+procedure CopyToClipboard(C:TCanvas; R:TRect);
+
+implementation
+
+uses Clipbrd, DaySelect, DateTimeSelect, Main;
+
+{$R *.DFM}
+
+procedure CopyToClipboard(C:TCanvas; R:TRect);
+var
+  BM:TBitmap;
+  Dest:TRect;
+begin
+  BM:=TBitmap.create;
+  Dest.Top:=0; Dest.Left:=0;
+  Dest.Right:=R.Right-R.Left;
+  Dest.Bottom:=R.Bottom-R.Top;
+  BM.Width:=Dest.Right+1;
+  BM.Height:=Dest.Bottom+1;
+  try
+    BM.Canvas.CopyRect(Dest,C,R);
+    Clipboard.Assign(BM);
+  finally
+    BM.Free;
+  end;
+end;
+
+procedure AppendItemToMenu(Item:TMenuItem; Menu: HMENU);
+const
+  IBreaks: array[TMenuBreak] of DWORD = (MFT_STRING, MFT_MENUBREAK, MFT_MENUBARBREAK);
+  IChecks: array[Boolean] of DWORD = (MFS_UNCHECKED, MFS_CHECKED);
+  IDefaults: array[Boolean] of DWORD = (0, MFS_DEFAULT);
+  IEnables: array[Boolean] of DWORD = (MFS_DISABLED or MFS_GRAYED, MFS_ENABLED);
+  IRadios: array[Boolean] of DWORD = (MFT_STRING, MFT_RADIOCHECK);
+  ISeparators: array[Boolean] of DWORD = (MFT_STRING, MFT_SEPARATOR);
+  IOwnerDraw: array[Boolean] of DWORD = (MFT_STRING, MFT_OWNERDRAW);
+var
+  MenuItemInfo: TMenuItemInfo;
+  Caption: string;
+  IsOwnerDraw: Boolean;
+  ParentMenu: TMenu;
+begin
+  Caption := Item.Caption;
+  if Item.Count > 0
+  then MenuItemInfo.hSubMenu := Item.Handle
+  else if (Item.ShortCut <> scNone) and ((Item.Parent = nil) or
+    (Item.Parent.Parent <> nil) or not (Item.Parent.Owner is TMainMenu))
+  then Caption := Caption + #9 + ShortCutToText(Item.ShortCut);
+  MenuItemInfo.cbSize := SizeOf(TMenuItemInfo)-SizeOf(Integer); // Required for Windows 95
+  MenuItemInfo.fMask := MIIM_CHECKMARKS or MIIM_DATA or MIIM_ID or
+    MIIM_STATE or MIIM_SUBMENU or MIIM_TYPE;
+  ParentMenu := Item.GetParentMenu;
+  IsOwnerDraw := Assigned(ParentMenu) and
+    (ParentMenu.OwnerDraw or (Item.GetImageList <> nil)) or
+    Assigned(Item.Bitmap) and not Item.Bitmap.Empty;
+  MenuItemInfo.fType := IRadios[Item.RadioItem] or IBreaks[Item.Break] or
+    ISeparators[Item.Caption = cLineCaption] or IOwnerDraw[IsOwnerDraw];
+  MenuItemInfo.fState := IChecks[Item.Checked] or IEnables[Item.Enabled]
+    or IDefaults[Item.Default];
+  MenuItemInfo.wID := Item.Command;
+  MenuItemInfo.hbmpChecked := 0;
+  MenuItemInfo.hbmpUnchecked := 0;
+  MenuItemInfo.dwTypeData := PChar(Caption);
+  InsertMenuItem(Menu, 0, True, MenuItemInfo);
+end;
+
+procedure TFormPipe.FormResize(Sender: TObject);
+var
+  i:Integer;
+  Y,W,H,MinH:Integer;
+  G:TFrameGroup;
+  Scale:Double;
+begin
+  if Groups.Count=0 then exit;
+  MinH:=0;
+  for i:=0 to Groups.Count-1
+  do Inc(MinH,Group[i].Constraints.MinHeight);
+  Scale:=ClientHeight/MinH;
+  if Scale<1 then begin
+    Scale:=1;
+    VertScrollBar.Visible:=True;
+  end
+  else VertScrollBar.Visible:=False;
+  Y:=0;
+  for i:=0 to Groups.Count-1 do begin
+    G:=Group[i];
+    Inc(Y,Round(G.Constraints.MinHeight*Scale));
+  end;
+  Bevel.Height:=Y;
+  W:=ClientWidth;
+  LockGroups;
+  Y:=Bevel.Top;
+  for i:=0 to Groups.Count-1 do begin
+    G:=Group[i];
+    H:=Round(G.Constraints.MinHeight*Scale);
+    if (G.Top<>Y)or(G.Width<>W)or(G.Height<>H)
+    then G.SetBounds(0,Y,W,H);
+    Inc(Y,H);
+  end;
+  UnlockGroups;
+end;
+
+procedure TFormPipe.FormDestroy(Sender: TObject);
+var
+  i:Integer;
+begin
+  for i:=0 to Groups.Count-1
+  do Group[i].Parent:=nil;
+  Groups.Free;
+end;
+
+procedure TFormPipe.FormConstrainedResize(Sender: TObject; var MinWidth,
+  MinHeight, MaxWidth, MaxHeight: Integer);
+begin
+  if Groups.Count=0 then exit;
+  MinWidth:=Group[0].Constraints.MinWidth+(Width-ClientWidth);
+end;
+
+procedure TFormPipe.miScrollLockClick(Sender: TObject);
+begin
+  ScrollLock:=not miScrollLock.Checked;
+end;
+
+procedure TFormPipe.SaveCfg(Cfg: TIniFile);
+begin
+  Cfg.WriteFloat(Section,'TimeCapacity',TimeCapacity);
+  if WindowState=wsNormal then begin
+    Cfg.WriteInteger(Section,'Left',Left);
+    Cfg.WriteInteger(Section,'Top',Top);
+    Cfg.WriteInteger(Section,'Width',Width);
+    Cfg.WriteInteger(Section,'Height',Height);
+  end;
+end;
+
+procedure TFormPipe.LockGroups;
+var
+  i:Integer;
+begin
+  for i:=0 to Groups.Count-1
+  do Group[i].LockGraphs;
+end;
+
+procedure TFormPipe.UnlockGroups;
+var
+  i:Integer;
+begin
+  for i:=0 to Groups.Count-1
+  do Group[i].UnlockGraphs;
+end;
+
+constructor TFormPipe.CreateFromIniSection(AOwner: TComponent;
+  Cfg: TIniFile; const Section: String);
+var
+  L,T,W,H:Integer;
+  FF:TPoint;
+  hSysMenu:HMENU;
+  i:Integer;
+begin
+  inherited Create(AOwner);
+  DoubleBuffered:=True;
+  Groups:=TList.Create;
+  Self.Section:=Section;
+  FF.x:=0;
+  FF.y:=Canvas.TextHeight('0')*6 div 8;
+  // Read configuration
+  L:=Cfg.ReadInteger(Section,'Left',Left);
+  T:=Cfg.ReadInteger(Section,'Top',Top);
+  W:=Cfg.ReadInteger(Section,'Width',Width);
+  H:=Cfg.ReadInteger(Section,'Height',Height);
+  FTimeCapacity:=Cfg.ReadFloat(Section,'TimeCapacity',5*dtOneMinute);
+  SetBounds(L,T,W,H);
+  hSysMenu:=GetSystemMenu(Handle,False);
+  EnableMenuItem(hSysMenu,SC_CLOSE,MF_BYCOMMAND or MF_GRAYED);
+  InsertMenu(hSysMenu,0,MF_BYPOSITION or MF_SEPARATOR,0,'');
+  for i:=menuSys.Items.Count-1 downto 0
+  do AppendItemToMenu(menuSys.Items[i],hSysMenu);
+end;
+
+procedure TFormPipe.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose:=Application.Terminated;
+end;
+
+function TFormPipe.Get_Group(i: Integer): TFrameGroup;
+begin
+  Result:=Groups[i];
+end;
+
+procedure TFormPipe.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  case Key of
+    'q','й':miArcViewDec001.Click;
+    'e','у':miArcViewInc001.Click;
+    'Q','Й':miArcViewDec005.Click;
+    'E','У':miArcViewInc005.Click;
+    'a','ф':miArcViewDec010.Click;
+    'd','в':miArcViewInc010.Click;
+    'A','Ф':miArcViewDec050.Click;
+    'D','В':miArcViewInc050.Click;
+    'z','я':miArcViewDec100.Click;
+    'c','с':miArcViewInc100.Click;
+    'Z','Я':miArcViewDec500.Click;
+    'C','С':miArcViewInc500.Click;
+  end;
+end;
+
+procedure TFormPipe.miCopyClick(Sender: TObject);
+begin
+  Deactivate;
+  Negative:=Sender=miCopyForPrinting;
+  CopyToClipboard;
+  if Negative then Negative:=False;
+  Activate;
+end;
+
+procedure TFormPipe.miAnyCapacityClick(Sender: TObject);
+var
+  mi:TMenuItem absolute Sender;
+  CT:TDateTime;
+begin
+  CT:=mi.Tag*dtOneMinute;
+  TimeCapacity:=CT;
+end;
+
+procedure TFormPipe.Set_TimeCapacity(const Value: TDateTime);
+var
+  i:Integer;
+  V:TDateTime;
+begin
+  V:=Value;
+  if V<dtOneSecond*10 then begin
+    V:=dtOneSecond*10;
+    miDecCapacity.Enabled:=False;
+  end
+  else miDecCapacity.Enabled:=True;
+  if V>dtOneHour*4 then begin
+    V:=dtOneHour*4;
+    miIncCapacity.Enabled:=False;
+  end
+  else miIncCapacity.Enabled:=True;
+  FTimeCapacity:=V;
+  for i:=0 to Groups.Count-1
+  do Group[i].TimeCapacity:=V;
+end;
+
+function TFormPipe.Get_TimeCapacity: TDateTime;
+begin
+  Result:=FTimeCapacity;
+end;
+
+procedure TFormPipe.InsertGroup(G: TFrameGroup);
+begin
+  if ActiveGroup=nil then ActiveGroup:=G;
+  G.TimeCapacity:=FTimeCapacity;
+  G.Parent:=Self;
+  G.SpyMode:=SpyMode;
+  G.Negative:=miNegative.Checked;
+  G.OnExit(G);
+  Groups.Add(G);
+end;
+
+procedure TFormPipe.AnyArcViewClick(Sender: TObject);
+begin
+  Application.ProcessMessages;
+  ScrollArcView(TimeCapacity*0.01*TComponent(Sender).Tag);
+end;
+
+procedure TFormPipe.ScrollArcView(Step: TDateTime);
+begin
+  if SpyMode
+  then ArcEndTime:=SpyEndTime
+  else ArcEndTime:=ArcEndTime+Step;
+end;
+
+function TFormPipe.Get_SpyMode: Boolean;
+begin
+  Result:=miSpyMode.Checked;
+end;
+
+procedure TFormPipe.Set_SpyMode(const Value: Boolean);
+var
+  i:Integer;
+begin
+  FormMain.CheckCorrelator(Value);
+  miSpyMode.Checked:=Value;
+  for i:=0 to Groups.Count-1
+  do Group[i].SpyMode:=Value;
+end;
+
+function TFormPipe.Get_ScrollLock: Boolean;
+begin
+  Result:=miScrollLock.Checked;
+end;
+
+procedure TFormPipe.Set_ScrollLock(const Value: Boolean);
+begin
+  miScrollLock.Checked:=Value;
+  if Value then ArcEndTime:=ActiveGroup.ArcEndTime;
+end;
+
+procedure TFormPipe.miSpyModeClick(Sender: TObject);
+begin
+  SpyMode:=not miSpyMode.Checked; // вкл/выкл режим слежения
+end;
+
+procedure TFormPipe.miNegativeClick(Sender: TObject);
+begin
+  Negative:=not miNegative.Checked;
+end;
+
+procedure TFormPipe.QueryArcView(Time: TDateTime);
+begin
+  ArcEndTime:=Time;
+end;
+
+procedure TFormPipe.NotifyActivity(Sender: TObject);
+begin
+  ActiveGroup:=TFrameGroup(Sender);
+end;
+
+function TFormPipe.Get_ArcEndTime: TDateTime;
+begin
+  Result:=ActiveGroup.ArcEndTime;
+end;
+
+function TFormPipe.Get_SpyEndTime: TDateTime;
+var
+  i:Integer;
+  Tmp:TDateTime;
+begin
+  Result:=0;
+  for i:=0 to Groups.Count-1 do begin
+    Tmp:=Group[i].SpyEndTime;
+    if Result<Tmp then Result:=Tmp;
+  end;
+end;
+
+procedure TFormPipe.Set_ArcEndTime(const Value: TDateTime);
+var
+  i:Integer;
+begin
+  if ScrollLock then begin
+    for i:=0 to Groups.Count-1
+    do Group[i].ArcEndTime:=Value
+  end
+  else ActiveGroup.ArcEndTime:=Value;
+  if SpyMode then SpyMode:=False;
+end;
+
+procedure TFormPipe.Set_Negative(const Value: Boolean);
+var
+  i:Integer;
+begin
+  miNegative.Checked:=Value;
+  for i:=0 to Groups.Count-1
+  do Group[i].Negative:=Value;
+end;
+
+procedure TFormPipe.TimerProc;
+begin
+
+end;
+
+procedure TFormPipe.WMSysCommand(var Message: TWMSysCommand);
+begin
+  if (Message.CmdType and $F000<>0) or not menuSys.DispatchCommand(Message.CmdType)
+  then inherited;
+end;
+
+function TFormPipe.IsShortCut(var Message: TWMKey): Boolean;
+begin
+  Result:=menuSys.IsShortCut(Message) or inherited IsShortCut(Message);
+end;
+
+procedure TFormPipe.miDecCapacityClick(Sender: TObject);
+begin
+  TimeCapacity:=TimeCapacity*0.75;
+end;
+
+procedure TFormPipe.miIncCapacityClick(Sender: TObject);
+begin
+  TimeCapacity:=TimeCapacity*1.33333333333;
+end;
+
+procedure TFormPipe.CopyToClipboard;
+var
+  i,Y:Integer;
+  BM:TBitmap;
+  R:TRect;
+begin
+  BM:=TBitmap.Create;
+  Y:=0;
+  for i:=0 to Groups.Count-1
+  do Inc(Y,Group[i].Height);
+  BM.Width:=ActiveGroup.ActiveGraph.Width+4;
+  BM.Height:=Y+3;
+  BM.Canvas.Brush.Color:=clSilver;
+  R.Top:=0; R.Left:=0; R.Right:=BM.Width; R.Bottom:=BM.Height;
+  BM.Canvas.FillRect(R);
+  BM.Canvas.Brush.Color:=clGray;
+  BM.Canvas.FrameRect(R);
+  Inc(R.Top); Inc(R.Left); Dec(R.Right); Dec(R.Bottom);
+  BM.Canvas.FrameRect(R);
+  Y:=1;
+  for i:=0 to Groups.Count-1 do begin
+    Group[i].MyPaintTo(BM.Canvas.Handle,2,Y);
+    Inc(Y,Group[i].Height);
+  end;
+  Clipboard.Assign(BM);
+  BM.Free;
+end;
+
+function TFormPipe.Get_Negative: Boolean;
+begin
+  Result:=miNegative.Checked;
+end;
+
+procedure TFormPipe.miGraphOptionClick(Sender: TObject);
+begin
+  ActiveGroup.ActiveGraph.SpdBtnOptions.Click;
+end;
+
+procedure TFormPipe.miGroupOptionsClick(Sender: TObject);
+begin
+  ActiveGroup.SpdBtnOptions.Click;
+end;
+
+procedure TFormPipe.FormDeactivate(Sender: TObject);
+begin
+  ActiveGroup.OnExit(Self);
+  ActiveGroup.ActiveGraph.OnExit(Self);
+  ActiveControl:=BtnFake;
+end;
+
+procedure TFormPipe.miCalculateClick(Sender: TObject);
+begin
+  if ActiveGroup.SpdBtnCalculation.Enabled
+  then ActiveGroup.SpdBtnCalculation.Click;
+end;
+
+procedure TFormPipe.FormMouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+var
+  Delta:Integer;
+begin
+  if (Shift=[]) and VertScrollBar.Visible then begin
+    Handled:=True;
+    Delta:=-VertScrollBar.Increment*WheelDelta div 40;
+    VertScrollBar.Position:=VertScrollBar.Position+Delta;
+  end;
+end;
+
+procedure TFormPipe.miSetArcTimeClick(Sender: TObject);
+begin
+  ActiveGroup.SpdBtnSetArcTime.Click;
+end;
+
+procedure TFormPipe.miZoomOutVClick(Sender: TObject);
+begin
+  ActiveGroup.ActiveGraph.SpdBtnZoomOut.Click;
+end;
+
+procedure TFormPipe.miZoomInVClick(Sender: TObject);
+begin
+  ActiveGroup.ActiveGraph.SpdBtnZoomIn.Click;
+end;
+
+procedure TFormPipe.miAnalizFormClick(Sender: TObject);
+begin
+  FormMain.FlashAnalizForm;
+end;
+
+procedure TFormPipe.FormActivate(Sender: TObject);
+begin
+  FormMain.CheckCorrelator(SpyMode);
+end;
+
+end.
+
+unit DataTypes2;
+
+interface
+
+uses Classes,SysUtils,ArchManThd,SensorTypes;
+
+type
+  TAnalogDataTrack=class;
+
+  PAnalogData=^TAnalogData;
+
+  TADDynamicArray=packed array of TAnalogData;
+
+  TDataUpdateEvent=procedure(Sender:TAnalogDataTrack; FromRec:Int64;
+    const Data:TADDynamicArray) of object;
+
+  TAnalogDataTrack=class(TObject)
+  private
+    function Get_LastRecTime: TDateTime;
+  protected
+    FTrackID:Integer;
+    FPeriod:TDateTime;
+    FRecsPerDay:Integer;
+    FLastRec:Int64;
+    FStrTrackID:String;
+  public
+    procedure requestData(FromRec: Int64; Count: Integer;
+      Handler:TDataUpdateEvent);
+    constructor Create(StrTrackID:String; RecsPerDay:Integer);
+    function OnTimer:Boolean;
+  public
+    OnNewData:TNotifyEvent;
+    property Period:TDateTime read FPeriod;
+    property RecsPerDay:Integer read FRecsPerDay;
+    property LastRec:Int64 read FLastRec;
+    property StrTrackID:String read FStrTrackID;
+    property TrackID:Integer read FTrackID;
+    property LastRecTime:TDateTime read Get_LastRecTime;
+  end;
+
+  TListChangeAction=object Action:(lcaResize,lcaShift,lcaUpdate); end;
+  TLCA_Resize=object(TListChangeAction)
+    NewSize:Integer;
+    constructor Init(ANewSize:Integer);
+  end;
+  TLCA_Shift=object(TListChangeAction)
+    Shift:Int64;
+    constructor Init(AShift:Int64);
+  end;
+  TLCA_Update=object(TListChangeAction)
+    FromNdx,Count:Integer;
+    constructor Init(AFromNdx,ACount:Integer);
+  end;
+
+  TChangeListEvent=procedure(Sender:TObject; var LCA:TListChangeAction) of object;
+
+  TAnalogDataList=class(TObject)
+  private
+    function Get_Capacity: Integer;
+    function Get_LastI: PAnalogData;
+    function Get_EndTime: TDateTime;
+    function Get_BegTime: TDateTime;
+    procedure Set_StartRec(const Value: Int64);
+    procedure Set_EndTime(const Value: TDateTime);
+    procedure Set_BegTime(const Value: TDateTime);
+    procedure Set_Capacity(const Value: Integer);virtual;
+  protected
+    FStartRec:Int64;
+    FItems:TADDynamicArray;
+    Notifiers:TList;
+    RefreshUnlocked:Boolean;
+    AnchorBeg:Boolean;
+    function Get_Period: TDateTime; virtual; abstract;
+    function Get_RecsPerDay: Integer; virtual; abstract;
+    procedure notify(var LCA:TListChangeAction);
+    procedure notifyRefresh(FromNdx,Count:Integer);
+    procedure notifyResize(NewSize:Integer);
+    procedure notifyShift(Shift:Int64);
+    procedure refreshItems(FromNdx,Count:Integer); virtual; abstract;
+    procedure shiftBk(Count: Integer);
+    procedure shiftFw(Count: Integer);
+  public
+    constructor Create;
+    destructor Destroy;override;
+    procedure addUpdateNotifier(Handler:TChangeListEvent);
+    procedure removeUpdateNotifier(Handler:TChangeListEvent);
+    procedure shiftBackward(Count: Int64; Refresh,Notify:Boolean);
+    procedure shiftForward(Count: Int64; Refresh,Notify:Boolean);
+    procedure shift(Count:Int64; Refresh,Notify:Boolean);
+    procedure Refresh;
+  public
+    property Capacity:Integer read Get_Capacity write Set_Capacity;
+    property I:TADDynamicArray read FItems;
+    property LastI:PAnalogData read Get_LastI;
+    property StartRec:Int64 read FStartRec write Set_StartRec;
+    property Period:TDateTime read Get_Period;
+    property RecsPerDay:Integer read Get_RecsPerDay;
+    property BegTime:TDateTime read Get_BegTime write Set_BegTime;
+    property EndTime:TDateTime read Get_EndTime write Set_EndTime;
+  end;
+
+  TADL_SrcData=class(TAnalogDataList)
+  protected
+    Track:TAnalogDataTrack;
+    procedure OnDataUpdate(Sender:TAnalogDataTrack; FromRec:Int64;
+      const Data:TADDynamicArray);
+    procedure OnNewData(Sender:TObject);
+    procedure refreshItems(FromNdx,Count:Integer); override;
+    function Get_Period: TDateTime; override;
+    function Get_RecsPerDay: Integer; override;
+  public
+    constructor Create(ADTrack:TAnalogDataTrack; Spy:Boolean);
+  end;
+
+  TADL_Filter=class(TAnalogDataList)
+  protected
+    FSrcData:TAnalogDataList;
+    procedure Set_SrcData(const Value: TAnalogDataList);virtual;
+    procedure OnChangeSrcData(Sender:TObject; var LCA:TListChangeAction);virtual;
+    function Get_Period: TDateTime; override;
+    function Get_RecsPerDay: Integer; override;
+  public
+    constructor Create(SrcData:TAnalogDataList);
+  public
+    property SrcData:TAnalogDataList read FSrcData write Set_SrcData;
+  end;
+
+  TADLF_Screen=class(TADL_Filter)
+    constructor Create(SrcData:TAnalogDataList);
+  protected
+    procedure Set_SrcData(const Value: TAnalogDataList);override;
+    procedure Set_Capacity(const Value: Integer);override;
+    procedure Set_TimeCapacity(const Value: TDateTime);
+    function Get_ScrTimeCapacity: TDateTime;
+    procedure CalcScaleFactor;
+  protected
+    FTimeCapacity:TDateTime;
+    fSrcToScr:Double;
+    iSrcToScr:Integer;
+    FactorIsDivisor:Boolean;
+    NeedFullRefresh:Boolean;
+    DimChanging:Boolean;
+    procedure OnChangeSrcData(Sender:TObject; var LCA:TListChangeAction);override;
+    procedure refreshItems(FromNdx,Count:Integer); override;
+    function Get_Period: TDateTime; override;
+    function Get_RecsPerDay: Integer; override;
+  public
+    property TimeCapacity:TDateTime read FTimeCapacity write Set_TimeCapacity;
+    property ScrTimeCapacity:TDateTime read Get_ScrTimeCapacity;
+  end;
+
+  TADLF_Half=class(TADL_Filter)
+  protected
+    procedure OnChangeSrcData(Sender:TObject; var LCA:TListChangeAction);override;
+    procedure refreshItems(FromNdx,Count:Integer); override;
+    function Get_Period: TDateTime; override;
+    function Get_RecsPerDay: Integer; override;
+  end;
+
+  TADLF_ExpAvg=class(TADL_Filter)
+    constructor Create(SrcData:TAnalogDataList; Alpha:Double);
+  protected
+    FAlpha:Double;
+    procedure Set_Alpha(const Value: Double);
+    procedure refreshItems(FromNdx,Count:Integer); override;
+    function Get_Period: TDateTime; override;
+    function Get_RecsPerDay: Integer; override;
+  public
+    property Alpha:Double read FAlpha write Set_Alpha;
+  end;
+
+  TADLF_Substract=class(TADL_Filter)
+    constructor Create(SrcData,SrcData2:TAnalogDataList);
+  protected
+    SrcData2:TAnalogDataList;
+    procedure refreshItems(FromNdx,Count:Integer); override;
+  end;
+
+  TADLF_Krivizna=class(TADL_Filter)
+    constructor Create(SrcData:TAnalogDataList; Alpha1,Alpha2:Double);
+  protected
+    Alpha1,Alpha2:Double;
+    procedure refreshItems(FromNdx,Count:Integer); override;
+  end;
+
+  TADLF_Fourier=class(TADL_Filter)
+    constructor Create(SrcData:TAnalogDataList; N,W:Integer);
+  protected
+    N,W:Integer;
+    Coeffs:array of Single;
+    procedure refreshItems(FromNdx,Count:Integer); override;
+  end;
+
+  TADLF_Differentiator=class(TADL_Filter)
+  protected
+    procedure refreshItems(FromNdx,Count:Integer); override;
+  end;
+
+  TADLF_Differentiator2=class(TADL_Filter)
+  protected
+    procedure refreshItems(FromNdx,Count:Integer); override;
+  end;
+
+  TADLF_Integrator=class(TADL_Filter)
+  protected
+    procedure refreshItems(FromNdx,Count:Integer); override;
+  end;
+
+procedure applySubstitutions(const Src: WideString; TrackID: Integer; Time: TDateTime;
+  var Result: WideString);
+
+function Initialize(ServerName:String):Boolean;
+procedure Finalize;
+
+function AM2:TArchManThread;
+
+const
+  dtY2K=36526.0;
+
+implementation
+
+const
+  LnPrecision=-2.3;
+var
+  AM:TArchManThread;
+  ProgramStartTime:TDateTime;
+
+function MyCeil(const X:Extended):Int64;
+begin
+  Result:=Trunc(X); if Frac(X)>0 then Inc(Result);
+end;
+
+procedure Finalize;
+begin
+  AM.Free;
+end;
+
+function AM2:TArchManThread;
+begin
+  Result:=AM;
+end;
+
+procedure applySubstitutions(const Src: WideString; TrackID: Integer; Time: TDateTime;
+  var Result: WideString);
+begin
+  AM.applySubstitutions(Src,TrackID,Time,Result);
+end;
+
+function CalcAvg(const A:TADDynamicArray; i1,i2:Integer; var Avg:Double):Boolean;
+var
+  i,Cnt:Integer;
+  AD:^TAnalogData;
+  Sum:Double;
+begin
+  Sum:=0; Cnt:=0;
+  for i:=i1 to i2 do begin
+    AD:=@(A[i]);
+    if ValidAD(AD^) then begin
+      Sum:=Sum+AD.Value;
+      Inc(Cnt);
+    end;
+  end;
+  Result:=Cnt>0;
+  if Result then Avg:=Sum/Cnt else Avg:=0;
+end;
+
+function CalcAvgDist(const A:TADDynamicArray; i1,i2:Integer; K,B:Double):Double;
+var
+  i,Cnt:Integer;
+  Sum:Double;
+begin
+  Sum:=0; Cnt:=0;
+  for i:=i1 to i2 do begin
+    if not ValidAD(A[i]) then continue;
+    Sum:=Sum+Sqr(i*K+B-A[i].Value);
+    Inc(Cnt);
+  end;
+  if Cnt>1 then Result:=Sum/(Cnt-1) else Result:=0;
+end;
+
+function CalcAvgD3(const A:TADDynamicArray; i1,i2:Integer; K,B:Double):Double;
+var
+  i,Cnt:Integer;
+  Sum:Double;
+begin
+  Sum:=0; Cnt:=0;
+  for i:=i1 to i2 do begin
+    if not ValidAD(A[i]) then continue;
+    Sum:=Sum+Sqr(Sqr(Sqr(i*K+B-A[i].Value)));
+    Inc(Cnt);
+  end;
+  if Cnt>1 then Result:=Sum/(Cnt-1) else Result:=0;
+end;
+
+function CalcKB(const A:TADDynamicArray; i1, i2: Integer; var K,B:Double):Integer;
+var
+  i,n,Xi:Integer;
+  Yi:Double;
+  p,q,r,s:Double;
+begin
+  Result:=0;
+  p:=0; q:=0; r:=0; s:=0;
+  n:=0;
+  for i:=i1 to i2 do begin
+    if not ValidAD(A[i]) then continue;
+    Yi:=A[i].Value;
+    Xi:=i;
+    p:=p+Xi*Xi; q:=q+Xi; r:=r+Xi*Yi; s:=s+Yi;
+    Inc(n);
+  end;
+  if n>=1 then begin
+    if n>1
+    then try K:=(n*r-q*s)/(n*p-q*q); except K:=0; end
+    else K:=0;
+    B:=(s-K*q)/n;
+    Result:=n;
+  end
+  else begin
+    K:=0; B:=0;
+  end;
+end;
+
+function CalcAdaptiveKB(const A:TADDynamicArray; ForNdx, MinN, MaxN: Integer; var K,B:Double):Integer;
+type
+  TKBRec=record
+    K,B:Double;
+  end;
+var
+  i,Ndx,Dir,Cnt:Integer;
+  FromI,ToI:^Integer;
+  Tmp,MinAvgDist:Double;
+  KK,BB,KMin,BMin:Double;
+begin
+  if MaxN>0 then begin
+    Dir:=+4; FromI:=@ForNdx; ToI:=@Ndx;
+  end
+  else begin
+    Dir:=-4; FromI:=@Ndx; ToI:=@ForNdx; MaxN:=-MaxN;
+  end;
+  KMin:=0; BMin:=0; Result:=0; MinAvgDist:=1e+100;
+  for i:=MinN div 4 to MaxN div 4 do begin
+    Ndx:=ForNdx+i*Dir;
+    Cnt:=CalcKB(A,FromI^,ToI^,KK,BB);
+    if Cnt>2 then begin
+      Tmp:=CalcAvgDist(A,FromI^,ToI^,KK,BB);
+      if Tmp<MinAvgDist then begin
+        KMin:=KK; BMin:=BB; MinAvgDist:=Tmp;
+        Result:=Cnt;
+      end;
+    end;
+  end;
+  K:=KMin;
+  B:=BMin;
+end;
+
+{ TAnalogDataTrack }
+
+constructor TAnalogDataTrack.Create(StrTrackID: String;
+  RecsPerDay: Integer);
+begin
+  FStrTrackID:=StrTrackID;
+  AM.StrToTrackID(StrTrackID,FTrackID);
+  AM.setTrackInfo(FTrackID,TMySensor.GetRecSize,RecsPerDay);
+  FRecsPerDay:=RecsPerDay;
+  FPeriod:=1/RecsPerDay;
+end;
+
+function TAnalogDataTrack.Get_LastRecTime: TDateTime;
+begin
+  Result:=LastRec*Period;
+end;
+
+function TAnalogDataTrack.OnTimer:Boolean;
+var
+  NewLastRec:Int64;
+  LRT:TDateTime;
+begin
+  Result:=False;
+  AM.getLastRecTime(FTrackID,LRT);
+  NewLastRec:=Round(LRT*FRecsPerDay);
+  if NewLastRec=0 then NewLastRec:=Round(ProgramStartTime*RecsPerDay);
+  if FLastRec<>NewLastRec then begin
+    Result:=True;
+    FLastRec:=NewLastRec;
+    if Assigned(OnNewData) then OnNewData(Self);
+  end;
+end;
+
+procedure TAnalogDataTrack.requestData(FromRec:Int64; Count: Integer;
+  Handler: TDataUpdateEvent);
+var
+  Data:WideString;
+  i:Integer;
+  ADDA:TADDynamicArray;
+begin
+  AM.readRecords(FTrackID,FromRec*FPeriod,Count,Data);
+  SetLength(ADDA,Count);
+  for i:=0 to Count-1 do TMySensor.GetAD(Data,i,ADDA[i]);
+  Handler(Self,FromRec,ADDA);
+end;
+
+{ TAnalogDataList }
+
+procedure TAnalogDataList.addUpdateNotifier(Handler: TChangeListEvent);
+var
+  M:^TChangeListEvent;
+begin
+  if Assigned(Handler) then begin
+    GetMem(M,SizeOf(TChangeListEvent));
+    M^:=Handler;
+    Notifiers.Add(M);
+  end;
+end;
+
+constructor TAnalogDataList.Create;
+begin
+  inherited Create;
+  Notifiers:=TList.Create;
+end;
+
+destructor TAnalogDataList.Destroy;
+var
+  i:Integer;
+begin
+  for i:=0 to Notifiers.Count-1 do FreeMem(Notifiers[i],SizeOf(TMethod));
+  Notifiers.Free;
+  inherited;
+end;
+
+function TAnalogDataList.Get_Capacity: Integer;
+begin
+  Result:=Length(FItems);
+end;
+
+function TAnalogDataList.Get_LastI: PAnalogData;
+begin
+  Result:=@(FItems[High(FItems)]);
+end;
+
+procedure TAnalogDataList.Notify(var LCA:TListChangeAction);
+var
+  i:Integer;
+begin
+  for i:=0 to Notifiers.Count-1
+  do TChangeListEvent(Notifiers[i]^)(Self,LCA);
+end;
+
+procedure TAnalogDataList.Set_Capacity(const Value: Integer);
+var
+  OldLength:Integer;
+begin
+  OldLength:=Length(FItems);
+  if Value=OldLength then exit;
+  if OldLength<Value then begin
+    SetLength(FItems,Value);
+    notifyResize(Value);
+    if AnchorBeg then begin
+      FillChar(FItems[OldLength],(Value-OldLength)*SizeOf(TAnalogData),0);
+      refreshItems(OldLength,Value-OldLength);
+    end
+    else shiftBackward(Value-OldLength,True,False);
+  end
+  else if not AnchorBeg then begin
+    shiftForward(OldLength-Value,False,False);
+    setLength(FItems,Value);
+    notifyResize(Value);
+  end;
+end;
+
+procedure TAnalogDataList.ShiftBk(Count: Integer);
+var
+  Size:Integer;
+begin
+  Size:=Length(FItems);
+  if Count>=Size then FillChar(FItems[0],Size*SizeOf(TAnalogData),0)
+  else if Count>0 then begin
+    Move(FItems[0],FItems[Count],(Size-Count)*SizeOf(TAnalogData));
+    FillChar(FItems[0],Count*SizeOf(TAnalogData),0);
+  end
+end;
+
+procedure TAnalogDataList.ShiftFw(Count: Integer);
+var
+  Size:Integer;
+begin
+  Size:=Length(FItems);
+  if Count>=Size then FillChar(FItems[0],Size*SizeOf(TAnalogData),0)
+  else if Count>0 then begin
+    Move(FItems[Count],FItems[0],(Size-Count)*SizeOf(TAnalogData));
+    FillChar(FItems[Size-Count],Count*SizeOf(TAnalogData),0);
+  end
+end;
+
+function TAnalogDataList.Get_EndTime: TDateTime;
+begin
+  Result:=(StartRec+Length(FItems){+0.5})*Period;
+end;
+
+procedure TAnalogDataList.Set_StartRec(const Value: Int64);
+begin
+  if Value<FStartRec then shiftBackward(FStartRec-Value,True,True)
+  else if FStartRec<Value then shiftForward(Value-FStartRec,True,True);
+end;
+
+procedure TAnalogDataList.Set_EndTime(const Value: TDateTime);
+begin
+  StartRec:=Round(Value*RecsPerDay{-0.5})-Length(FItems);
+end;
+
+procedure TAnalogDataList.ShiftBackward(Count: Int64; Refresh,Notify:Boolean);
+var
+  Cnt:Integer;
+begin
+  if Count<Capacity then ShiftBk(Count);
+  Dec(FStartRec,Count);
+  if Notify then notifyShift(-Count);
+  if Refresh then begin
+    if Count>Capacity then Cnt:=Capacity else Cnt:=Count;
+    if (Cnt>0) then refreshItems(0,Cnt);
+  end;
+end;
+
+procedure TAnalogDataList.ShiftForward(Count: Int64; Refresh,Notify:Boolean);
+var
+  Cnt:Integer;
+begin
+  if Count<Capacity then ShiftFw(Count);
+  Inc(FStartRec,Count);
+  if Notify then notifyShift(Count);
+  if Refresh then begin
+    if Count>Capacity then Cnt:=Capacity else Cnt:=Count;
+    if (Cnt>0) then refreshItems(Length(FItems)-Cnt,Cnt);
+  end;
+end;
+
+procedure TAnalogDataList.NotifyRefresh(FromNdx, Count: Integer);
+var
+  LCA:TLCA_Update;
+begin
+  LCA.Init(FromNdx,Count);
+  Notify(LCA);
+end;
+
+procedure TAnalogDataList.NotifyResize(NewSize: Integer);
+var
+  LCA:TLCA_Resize;
+begin
+  LCA.Init(NewSize); Notify(LCA);
+end;
+
+procedure TAnalogDataList.NotifyShift(Shift: Int64);
+var
+  LCA:TLCA_Shift;
+begin
+  LCA.Init(Shift); Notify(LCA);
+end;
+
+procedure TAnalogDataList.shift(Count: Int64; Refresh,Notify:Boolean);
+begin
+  if Count>0 then shiftForward(Count,Refresh,Notify)
+  else if Count<0 then shiftBackward(-Count,Refresh,Notify);
+end;
+
+procedure TAnalogDataList.Refresh;
+begin
+  RefreshUnlocked:=True;
+  refreshItems(0,Capacity);
+  RefreshUnlocked:=False;
+end;
+
+function TAnalogDataList.Get_BegTime: TDateTime;
+begin
+  Result:=(StartRec{+0.5})*Period;
+end;
+
+procedure TAnalogDataList.Set_BegTime(const Value: TDateTime);
+begin
+  StartRec:=Round(Value*RecsPerDay{-0.5});
+end;
+
+procedure TAnalogDataList.removeUpdateNotifier(Handler: TChangeListEvent);
+var
+  i:Integer;
+begin
+  i:=Notifiers.Count-1;
+  while (0<=i) and (@TChangeListEvent(Notifiers[i]^)<>@Handler)
+  do Dec(i);
+  if 0<=i then begin
+    FreeMem(Notifiers[i],SizeOf(TChangeListEvent));
+    Notifiers.Delete(i);
+  end;
+end;
+
+{ TADL_SrcData }
+
+constructor TADL_SrcData.Create(ADTrack: TAnalogDataTrack; Spy:Boolean);
+begin
+  inherited Create;
+  Track:=ADTrack;
+  if Spy then Track.OnNewData:=OnNewData;
+end;
+
+procedure TADL_SrcData.OnDataUpdate(Sender: TAnalogDataTrack;
+  FromRec: Int64; const Data:TADDynamicArray);
+var
+  Count,i,j0,k0:Integer;
+begin
+  Count:=Length(Data);
+  if (FromRec+Count<=StartRec) or (StartRec+Length(FItems)<=FromRec)
+  then exit;
+  if FromRec<StartRec then begin
+    j0:=StartRec-FromRec; k0:=0; Dec(Count,j0);
+  end
+  else {if StartRec<=FromRec then} begin
+    j0:=0; k0:=FromRec-StartRec;
+  end;
+  if Length(FItems)<k0+Count then Count:=Length(FItems)-k0;
+  for i:=0 to Count-1 do FItems[k0+i]:=Data[j0+i];
+  NotifyRefresh(k0,Count);
+end;
+
+procedure TADL_SrcData.OnNewData(Sender: TObject);
+begin
+  StartRec:=Track.LastRec-Capacity;
+end;
+
+procedure TADL_SrcData.refreshItems(FromNdx, Count: Integer);
+begin
+  Track.requestData(StartRec+FromNdx,Count,OnDataUpdate);
+end;
+
+function TADL_SrcData.Get_Period: TDateTime;
+begin
+  Result:=Track.Period;
+end;
+
+function TADL_SrcData.Get_RecsPerDay: Integer;
+begin
+  Result:=Track.RecsPerDay;
+end;
+
+{ TADL_Filter }
+
+constructor TADL_Filter.Create(SrcData: TAnalogDataList);
+begin
+  inherited Create;
+  FSrcData:=SrcData;
+  SrcData.addUpdateNotifier(OnChangeSrcData);
+end;
+
+function TADL_Filter.Get_Period: TDateTime;
+begin
+  Result:=SrcData.Period;
+end;
+
+function TADL_Filter.Get_RecsPerDay: Integer;
+begin
+  Result:=SrcData.RecsPerDay;
+end;
+
+procedure TADL_Filter.OnChangeSrcData(Sender: TObject;
+  var LCA: TListChangeAction);
+var
+  LCU:TLCA_Update absolute LCA;
+  LCS:TLCA_Shift absolute LCA;
+  I:Int64;
+begin
+  case LCA.Action of
+    lcaUpdate: begin
+       RefreshUnlocked:=True;
+       refreshItems(LCU.FromNdx,LCU.Count);
+       RefreshUnlocked:=False;
+       notifyRefresh(LCU.FromNdx,LCU.Count);
+    end;
+    lcaResize: Capacity:=SrcData.Capacity;
+    lcaShift: begin
+      I:=SrcData.StartRec-StartRec;
+      shift(I,False,True);
+    end;
+  end;
+end;
+
+procedure TADL_Filter.Set_SrcData(const Value: TAnalogDataList);
+begin
+  FSrcData := Value;
+end;
+
+{ TADLF_ExpAvg }
+
+constructor TADLF_ExpAvg.Create(SrcData: TAnalogDataList; Alpha:Double);
+begin
+  inherited Create(SrcData);
+  FAlpha:=Alpha;
+end;
+
+function TADLF_ExpAvg.Get_Period: TDateTime;
+begin
+  Result:=SrcData.Period;
+end;
+
+function TADLF_ExpAvg.Get_RecsPerDay: Integer;
+begin
+  Result:=SrcData.RecsPerDay;
+end;
+
+procedure TADLF_ExpAvg.refreshItems(FromNdx, Count: Integer);
+var
+  i,Cnt,MinCnt:Integer;
+  Val,AL,InvAL:Double;
+  A:TADDynamicArray;
+  AD:TAnalogData;
+begin
+  if RefreshUnlocked=False then exit;
+  FillChar(FItems[FromNdx],Count*SizeOf(TAnalogData),0);
+  A:=SrcData.I; InvAL:=1-Alpha; AL:=Alpha;
+  Val:=0;
+  Cnt:=0; MinCnt:=Round(LnPrecision/Ln(Alpha));
+  for i:=0 to Capacity-1 do begin
+    AD:=A[i];
+    if ValidAD(AD) then begin
+      if Cnt=0 then Val:=AD.Value
+      else Val:=Val*AL+AD.Value*InvAL;
+      Inc(Cnt);
+    end;
+    if (i<=MinCnt) or (Cnt=0) then FItems[i].Flags:=0
+    else FItems[i].Value:=Val;
+  end;
+end;
+
+procedure TADLF_ExpAvg.Set_Alpha(const Value: Double);
+begin
+  if FAlpha<>Value then begin
+    FAlpha:=Value;
+    Refresh;
+  end;
+end;
+
+{ TLCA_Resize }
+
+constructor TLCA_Resize.Init(ANewSize: Integer);
+begin
+  Action:=lcaResize;
+  NewSize:=ANewSize;
+end;
+
+{ TLCA_Shift }
+
+constructor TLCA_Shift.Init(AShift: Int64);
+begin
+  Action:=lcaShift;
+  Shift:=AShift;
+end;
+
+{ TLCA_Update }
+
+constructor TLCA_Update.Init(AFromNdx, ACount: Integer);
+begin
+  Action:=lcaUpdate;
+  FromNdx:=AFromNdx;
+  Count:=ACount;
+end;
+
+function Initialize(ServerName:String):Boolean;
+begin
+  ProgramStartTime:=Trunc(Now)+1/86400;
+  Result:=False;
+  try
+    AM:=TArchManThread.Create;//(ServerName);
+    AM.Resume;
+    AM.NOP;
+    Result:=(AM.HasError=FALSE);
+  except
+    Halt(1);
+  end;
+end;
+
+{ TADLF_Screen }
+
+procedure TADLF_Screen.CalcScaleFactor;
+var
+  SrcCap:Integer;
+  x:Integer;
+begin
+  if (Capacity=0) or (FTimeCapacity=0)
+  then begin
+    fSrcToScr:=1; iSrcToScr:=1; FactorIsDivisor:=False;
+    x:=0;
+  end
+  else begin
+    SrcCap:=Round(FTimeCapacity*SrcData.RecsPerDay);
+    if Capacity<=SrcCap shr 1 then begin
+      iSrcToScr:=Round(SrcCap/Capacity);
+      FactorIsDivisor:=True;
+      fSrcToScr:=1/iSrcToScr;
+      x:=iSrcToScr-1;
+    end
+    else begin
+      fSrcToScr:=Capacity/SrcCap;
+      iSrcToScr:=Trunc(fSrcToScr);
+      FactorIsDivisor:=False;
+      x:=0;
+    end;
+  end;
+  SrcData.Capacity:=Round(Capacity/fSrcToScr)+x;
+  SrcData.notifyShift(0);
+end;
+
+constructor TADLF_Screen.Create(SrcData: TAnalogDataList);
+begin
+  inherited;
+  CalcScaleFactor;
+end;
+
+function TADLF_Screen.Get_Period: TDateTime;
+begin
+  Result:=SrcData.Period/fSrcToScr;
+end;
+
+function TADLF_Screen.Get_RecsPerDay: Integer;
+begin
+  Result:=Round(SrcData.RecsPerDay*fSrcToScr);
+end;
+
+function TADLF_Screen.Get_ScrTimeCapacity: TDateTime;
+begin
+  Result:=Capacity*Period;
+end;
+
+procedure TADLF_Screen.OnChangeSrcData(Sender: TObject;
+  var LCA: TListChangeAction);
+var
+  LCU:TLCA_Update absolute LCA;
+//  LCR:TLCA_Resize absolute LCA;
+  LCS:TLCA_Shift absolute LCA;
+  SR,FN:Int64;
+  Ndx,Cnt:Integer;
+begin
+  case LCA.Action of
+    lcaUpdate: begin
+      if DimChanging then begin NeedFullRefresh:=True; exit; end;
+      if NeedFullRefresh then begin
+        Refresh; NeedFullRefresh:=False;
+      end
+      else begin
+        if FactorIsDivisor then begin
+          SR:=(SrcData.StartRec+iSrcToScr-1) div iSrcToScr;
+          FN:=SrcData.StartRec+LCU.FromNdx;
+          Ndx:=FN div iSrcToScr-SR;
+          Cnt:=(FN+LCU.Count+iSrcToScr-1) div iSrcToScr-SR-Ndx+1;
+        end
+        else begin
+          Ndx:=Trunc(LCU.FromNdx*fSrcToScr);
+          Cnt:=Trunc(LCU.Count*fSrcToScr)+2;
+        end;
+        if Ndx<0 then begin Inc(Cnt,Ndx); Ndx:=0; end;
+        if Ndx+Cnt>Capacity then Cnt:=Capacity-Ndx;
+        if Cnt>0 then begin
+          RefreshUnlocked:=True;
+          refreshItems(Ndx,Cnt);
+          RefreshUnlocked:=False;
+        end;
+      end;
+    end;
+    lcaShift: begin
+      if FactorIsDivisor
+      then SR:=(SrcData.StartRec+iSrcToScr-1) div iSrcToScr
+      else SR:=Trunc(SrcData.StartRec*fSrcToScr);
+      Shift(SR-StartRec,False,True);
+    end;
+  end;
+end;
+
+procedure TADLF_Screen.refreshItems(FromNdx, Count: Integer);
+var
+  Src,Dst:TADDynamicArray;
+  Tmp:TAnalogData;
+  si,di:Integer;
+  xsi,xst:Integer;
+  j,Cnt:Integer;
+begin
+  if DimChanging or not RefreshUnlocked then exit;
+  Src:=SrcData.I;
+  Dst:=I;
+  FillChar(Dst[FromNdx],Count*SizeOf(TAnalogData),0);
+  if FactorIsDivisor then begin
+    si:=(SrcData.StartRec+iSrcToScr-1)div iSrcToScr*iSrcToScr-SrcData.StartRec;
+    si:=si+FromNdx*iSrcToScr;
+    for di:=FromNdx to FromNdx+Count-1 do begin
+      Cnt:=0; Tmp.Value:=0;
+      for j:=0 to iSrcToScr-1 do begin
+        if ValidAD(Src[si]) then begin
+          if Cnt=0 then Tmp:=Src[si]
+          else Tmp.Value:=Tmp.Value+Src[si].Value;
+          Inc(Cnt);
+        end
+        else if Cnt=0 then Tmp:=Src[si];
+        Inc(si);
+      end;
+      if (Cnt>0) and ValidAD(Tmp) then Tmp.Value:=Tmp.Value/Cnt;
+      Dst[di]:=Tmp;
+    end;
+  end
+  else begin
+    xsi:=Trunc(FromNdx/fSrcToScr*65536);
+    xst:=Trunc(65536/fSrcToScr);
+    for di:=FromNdx to FromNdx+Count-1 do begin
+      Dst[di]:=Src[xsi shr 16];
+      Inc(xsi,xst);
+    end;
+  end;
+end;
+
+procedure TADLF_Screen.Set_Capacity(const Value: Integer);
+begin
+  DimChanging:=True;
+  inherited;
+  CalcScaleFactor;
+  DimChanging:=False;
+  Refresh;
+end;
+
+procedure TADLF_Screen.Set_TimeCapacity(const Value: TDateTime);
+begin
+  DimChanging:=True;
+  FTimeCapacity:=Value;
+  CalcScaleFactor;
+  DimChanging:=False;
+  Refresh;
+end;
+
+procedure TADLF_Screen.Set_SrcData(const Value: TAnalogDataList);
+var
+  LCS:TLCA_Shift;
+  LCU:TLCA_Update;
+begin
+  if FSrcData<>Value then begin
+    if SrcData<>nil then SrcData.removeUpdateNotifier(OnChangeSrcData);
+    inherited;
+    SrcData.addUpdateNotifier(OnChangeSrcData);
+    Capacity:=Capacity; // this update SrcData.Capacity
+    LCS.Init(0);
+    OnChangeSrcData(SrcData,LCS);
+    LCU.Init(0,SrcData.Capacity);
+    OnChangeSrcData(SrcData,LCU);
+  end;
+end;
+
+{ TADLF_Half }
+
+function TADLF_Half.Get_Period: TDateTime;
+begin
+  Result:=SrcData.Period*2;
+end;
+
+function TADLF_Half.Get_RecsPerDay: Integer;
+begin
+  Result:=Trunc(SrcData.RecsPerDay*0.5);
+end;
+
+procedure TADLF_Half.OnChangeSrcData(Sender: TObject;
+  var LCA: TListChangeAction);
+var
+  LCU:TLCA_Update absolute LCA;
+  LCS:TLCA_Shift absolute LCA;
+  I:Int64;
+  Ndx,Cnt:Integer;
+begin
+  case LCA.Action of
+    lcaUpdate: begin
+      I:=SrcData.StartRec+LCU.FromNdx;
+      Ndx:=I div 2-(SrcData.StartRec+1) div 2-1;
+      Cnt:=(I+LCU.Count+1) div 2-I div 2+2;
+      if Ndx<0 then begin Inc(Cnt,Ndx); Ndx:=0; end;
+      if Ndx+Cnt>Capacity then Cnt:=Capacity-Ndx;
+      if Cnt>0 then begin
+        RefreshUnlocked:=True;
+        refreshItems(Ndx,Cnt);
+        RefreshUnlocked:=False;
+        notifyRefresh(Ndx,Cnt);
+      end;
+    end;
+    lcaResize: Capacity:=(SrcData.Capacity-1) div 2;
+    lcaShift: begin
+      I:=(SrcData.StartRec+1) div 2-StartRec;
+      if I<>0
+      then shift(I,False,True);
+    end;
+  end;
+end;
+
+procedure TADLF_Half.refreshItems(FromNdx, Count: Integer);
+var
+  di,si:Integer;
+  Src,Dst:TADDynamicArray;
+  Tmp:TAnalogData;
+begin
+  if not RefreshUnlocked or (Count=0) then exit;
+  Dst:=I;
+  FillChar(Dst[FromNdx],Count*SizeOf(TAnalogData),0);
+  di:=FromNdx-16;
+  if di<0 then di:=0;
+  Src:=SrcData.I;
+  si:=(SrcData.StartRec+1) and (not 1)-SrcData.StartRec;
+  si:=si+di shl 1;
+  Tmp.Flags:=0;
+  for di:=di to FromNdx+Count-1 do begin
+    // Среднее
+    if ValidAD(Src[si]) then begin
+      Tmp:=Src[si];
+      if ValidAD(Src[si+1])
+      then Tmp.Value:=(Tmp.Value+Src[si+1].Value)*0.5;
+    end
+    else Tmp:=Src[si+1];
+    Inc(si,2);
+    if di>=FromNdx then Dst[di]:=Tmp;
+  end;
+end;
+
+{ TADLF_Substract }
+
+constructor TADLF_Substract.Create(SrcData, SrcData2: TAnalogDataList);
+begin
+  inherited Create(SrcData);
+  Self.SrcData2:=SrcData2;
+end;
+
+procedure TADLF_Substract.refreshItems(FromNdx, Count: Integer);
+var
+  i:Integer;
+  Tmp:TAnalogData;
+  Src1,Src2,Dst:TADDynamicArray;
+begin
+  if RefreshUnlocked=False then exit;
+//  FillChar(FItems[FromNdx],Count*SizeOf(TAnalogData),0);
+  FillChar(FItems[0],Capacity*SizeOf(TAnalogData),0);
+  Src1:=SrcData.I;
+  Src2:=SrcData2.I;
+  Dst:=FItems;
+//  for i:=FromNdx to FromNdx+Count-1 do begin
+  for i:=0 to Capacity-1 do begin
+    if ValidAD(Src2[i]) and ValidAD(Src1[i]) then begin
+      Tmp.Value:=(Src2[i].Value-Src1[i].Value)*4;
+      if Tmp.Value=0 then Tmp.Value:=SignedZero;
+    end
+    else Tmp.Flags:=0;
+    Dst[i]:=Tmp;
+  end;
+end;
+
+{ TADLF_Krivizna }
+
+constructor TADLF_Krivizna.Create(SrcData: TAnalogDataList; Alpha1,Alpha2: Double);
+begin
+  inherited Create(SrcData);
+  Self.Alpha1:=Alpha1;
+  Self.Alpha2:=Alpha2;
+end;
+
+procedure TADLF_Krivizna.refreshItems(FromNdx, Count: Integer);
+var
+  i,Cnt,MinCnt:Integer;
+  Avg1,Avg2:Double;
+  Val:Single;
+  A:TADDynamicArray;
+  AD:TAnalogData;
+begin
+  if RefreshUnlocked=False then exit;
+  FillChar(FItems[FromNdx],Count*SizeOf(TAnalogData),0);
+  A:=SrcData.I;
+  Avg1:=0; Avg2:=0; Val:=0; Cnt:=0;
+  MinCnt:=Round(LnPrecision/Ln(Alpha1));
+  for i:=0 to Capacity-1 do begin
+    AD:=A[i];
+    if ValidAD(AD) then begin
+      if Cnt=0 then begin
+        Avg1:=AD.Value; Avg2:=AD.Value;
+      end
+      else begin
+        Avg1:=Avg1*Alpha1+AD.Value*(1-Alpha1);
+        Avg2:=Avg2*Alpha2+AD.Value*(1-Alpha2);
+      end;
+      Val:=Avg2-Avg1; if Val=0 then Val:=SignedZero;
+      Inc(Cnt);
+    end;
+    if (i<=MinCnt) or (Cnt=0) then FItems[i].Flags:=0
+    else FItems[i].Value:=Val;
+  end;
+end;
+
+{ TADLF_Fourier }
+
+constructor TADLF_Fourier.Create(SrcData: TAnalogDataList; N, W: Integer);
+var
+  i:Integer;
+  X,Sum,Tmp:Double;
+begin
+  inherited Create(SrcData);
+  Self.N:=N; Self.W:=W;
+  SetLength(Coeffs,N);
+  X:=-2*Pi*(W-1)/N;
+  Sum:=0;
+  for i:=0 to N-1 do begin
+    Tmp:=Exp(X*i); Coeffs[i]:=Tmp;
+    Sum:=Sum+Tmp;
+  end;
+  Tmp:=10/Sum;
+  for i:=0 to N-1 do Coeffs[i]:=Coeffs[i]*Tmp;
+end;
+
+procedure TADLF_Fourier.refreshItems(FromNdx, Count: Integer);
+var
+  di,si:Integer;
+  Src,Dst:TADDynamicArray;
+  Sum:Double;
+  Poor:Boolean;
+begin
+  if not RefreshUnlocked or (Count=0) then exit;
+  FillChar(FItems[0],Capacity*SizeOf(TAnalogData),0);
+  Dst:=I;
+  Src:=SrcData.I;
+  for di:=N-1 to Capacity-1 do begin
+    Sum:=0; Poor:=False;
+    for si:=0 to N-1 do begin
+      if ValidAD(Src[di-si])
+      then Sum:=Sum+Src[di-si].Value*Coeffs[si]
+      else begin Poor:=True; break; end;
+    end;
+    if Poor then Dst[di].Flags:=0
+    else Dst[di].Value:=Sum;
+  end;
+end;
+
+{ TADLF_Differentiator }
+
+procedure TADLF_Differentiator.refreshItems(FromNdx, Count: Integer);
+var
+  i:Integer;
+  Tmp:TAnalogData;
+  V0,V1:Single;
+  Src,Dst:TADDynamicArray;
+  First:Boolean;
+begin
+  if RefreshUnlocked=False then exit;
+  FillChar(FItems[0],Capacity*SizeOf(TAnalogData),0);
+  Src:=SrcData.I;
+  Dst:=FItems;
+  First:=True;
+  V0:=0; V1:=0;
+  for i:=0 to Capacity-1 do begin
+    if ValidAD(Src[i]) then begin
+      V0:=Src[i].Value;
+      if First then begin V1:=V0; First:=False; end;
+      Tmp.Value:=V0-V1;
+      if Tmp.Value=0 then Tmp.Value:=SignedZero;
+    end
+    else Tmp.Flags:=0;
+    V1:=V0;
+    Dst[i]:=Tmp;
+  end;
+end;
+
+{ TADLF_Integrator }
+
+procedure TADLF_Integrator.refreshItems(FromNdx, Count: Integer);
+var
+  i:Integer;
+  Sum:Double;
+  Tmp:TAnalogData;
+  Src,Dst:TADDynamicArray;
+begin
+  if RefreshUnlocked=False then exit;
+  FillChar(FItems[0],Capacity*SizeOf(TAnalogData),0);
+  Src:=SrcData.I;
+  Dst:=FItems;
+  Sum:=0;
+  Tmp.Flags:=0;
+  for i:=0 to Capacity-1 do begin
+    if ValidAD(Src[i]) then begin
+      Sum:=Sum+Src[i].Value;
+      Tmp.Value:=Sum;
+      if Tmp.Flags=0 then Tmp.Value:=SignedZero;
+    end;
+    Dst[i]:=Tmp;
+  end;
+end;
+
+{ TADLF_Differentiator2 }
+
+procedure TADLF_Differentiator2.refreshItems(FromNdx, Count: Integer);
+var
+  i:Integer;
+  Tmp:TAnalogData;
+  V0,V1,V2:Single;
+  Src,Dst:TADDynamicArray;
+  First:Boolean;
+begin
+  if RefreshUnlocked=False then exit;
+  FillChar(FItems[0],Capacity*SizeOf(TAnalogData),0);
+  Src:=SrcData.I;
+  Dst:=FItems;
+  First:=True;
+  V0:=0; V1:=0; V2:=0;
+  for i:=0 to Capacity-1 do begin
+    if ValidAD(Src[i]) then begin
+      V0:=Src[i].Value;
+      if First then begin V1:=V0; V2:=V0; First:=False; end;
+      Tmp.Value:=V0-2*V1+V2;
+      if Tmp.Value=0 then Tmp.Value:=SignedZero;
+    end
+    else Tmp.Flags:=0;
+    V2:=V1; V1:=V0;
+    Dst[i]:=Tmp;
+  end;
+end;
+
+end.
+
+{.$DEFINE ShowDrawCnt}
+{$DEFINE UseFilters}
+unit UFrameGraph;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  ActnList, AppEvnts, ExtCtrls, Buttons, StdCtrls, Scroller, DblGraphics, Misc,
+  DataTypes, Menus, SensorTypes, IniFiles, DataTypes2;
+
+type
+  TADLArray=array[1..2] of TAnalogDataList;
+  PADLArray=^TADLArray;
+
+  TFrameGraph = class(TFrame)
+    PopupMenu: TPopupMenu;
+    miCopy: TMenuItem;
+    View1: TUniViewer;
+    PnlTools: TPanel;
+    Panel: TPanel;
+    SpdBtnZoomOut: TSpeedButton;
+    SpdBtnZoomIn: TSpeedButton;
+    SpdBtnAutoZoom: TSpeedButton;
+    SpdBtnOptions: TSpeedButton;
+    PnlData: TPanel;
+    PnlTime: TPanel;
+    SBtnRed: TSpeedButton;
+    SBtnOrange: TSpeedButton;
+    SBtnYellow: TSpeedButton;
+    SBtnGreen: TSpeedButton;
+    SBtnWhite: TSpeedButton;
+    SBtn3Color: TSpeedButton;
+    miAutoCenterHelp: TMenuItem;
+    procedure View1Render(Sender: TBufferedScroller);
+    function View1GetRegionRect(BS: TBufferedScroller; RegionNum: Integer;
+      var dx, dy: Integer; var R: TRect): Integer;
+    procedure View1Resize(Sender: TObject);
+    procedure SpdBtnAutoZoomClick(Sender: TObject);
+    procedure SpdBtnZoomInClick(Sender: TObject);
+    procedure SpdBtnZoomOutClick(Sender: TObject);
+    procedure View1MouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
+    procedure View1MouseLeave(Sender: TObject);
+    procedure SpdBtnOptionsClick(Sender: TObject);
+    procedure View1Click(Sender: TObject);
+    procedure View1MouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure miCopyClick(Sender: TObject);
+    procedure FrameEnter(Sender: TObject);
+    procedure FrameExit(Sender: TObject);
+    procedure FrameResize(Sender: TObject);
+    procedure FrameClick(Sender: TObject);
+    procedure SBtnColorClick(Sender: TObject);
+    procedure FrameMouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+  //***** IMonitorSlave
+  protected
+    procedure Set_ArcEndTime(const Value:TDateTime);
+    function Get_ArcEndTime:TDateTime;
+    function Get_SpyEndTime: TDateTime;
+    procedure Set_SpyMode(const Value:Boolean);
+    function Get_SpyMode:Boolean;
+    procedure Set_TimeCapacity(const Value: TDateTime);
+    function Get_TimeCapacity: TDateTime;
+    procedure Set_Negative(const Value:Boolean);
+  public
+    procedure MyPaintTo(dc:HDC; X,Y:Integer);
+    property SpyMode:Boolean read Get_SpyMode write Set_SpyMode;
+    property ArcEndTime:TDateTime read Get_ArcEndTime write Set_ArcEndTime;
+    property SpyEndTime:TDateTime read Get_SpyEndTime;
+    property TimeCapacity:TDateTime read Get_TimeCapacity write Set_TimeCapacity;
+    property Negative:Boolean write Set_Negative;
+    procedure TimerProc;
+  //*****
+  private
+    { Private declarations }
+{$IFDEF ShowDrawCnt}
+    RCnt:Integer;
+{$ENDIF}
+    NoDataCnt,MaxNoDataCnt:Integer;
+    MouseShowDataTicks:Integer;
+    MouseDownPos,LastMousePos:TPoint;
+    MouseMovedAfterDown:Boolean;
+    LastMousePosF:Single;
+    AutoCenterPos:Single;
+    FNegative,NeedRedraw:Boolean;
+    function Get_DataNotChanged: Boolean;
+    function PaletteIndex(i: Word): COLORREF;
+    function Get_Period: TDateTime;
+    function Get_RecsPerDay: Integer;
+    procedure Set_DDSLineLen(const Value: Integer);
+    function MyADToStr(const AD:TAnalogData):String;
+    function MyTimeToStr(const T:TDateTime):String;
+    function GetDataColor:TColor;
+    function GetTimeColor:TColor;
+    function Get_LabelTime: TDateTime;
+    procedure Set_LabelTime(const Value: TDateTime);
+  public
+    { Public declarations }
+    LockViewState:Boolean;
+    ADTrack:TAnalogDataTrack;
+    L,SpyL:TAnalogDataList;
+    NL,SpyNL,ArcNL:TADL_SrcData;
+{$IFDEF UseFilters}
+    SpyFL,ArcFL:TADLArray;
+    FL:PADLArray;
+{$ENDIF}
+    ScrL:TADLF_Screen;
+    MinViewP,MaxViewP:Double;
+    MinViewI,MaxViewI:Integer;
+    Kilometer:Double;
+    Section,Caption:String;
+    // Простая СКУ
+    MinGraphHeight:Double;
+    AvgP:Double;
+    DDSAlarm:Boolean;
+    DDSHigh,DDSAlarmHigh:Boolean;
+    DDSLow,DDSAlarmLow:Boolean;
+    ValueHigh,ValueLow:Double;
+    FDDSLineLen:Integer;
+    // Auto High
+    HighAutoOn:Boolean;
+    HighAlpha,HighScale,HighMin,HighMax,HighAutoV:Double;
+    // Auto Low
+    LowAutoOn:Boolean;
+    LowAlpha,LowScale,LowMin,LowMax,LowAutoV:Double;
+    //
+    MinValidP1,AvgP1,MaxValidP1:Double;
+    MinValidP2,AvgP2,MaxValidP2:Double;
+    //
+    LabelPosF:TDateTime;
+    LabelActive:Integer;
+    //
+    constructor CreateFromIniSection(Owner:TComponent; Ini,Cfg:TIniFile; const Section:String);
+    destructor Destroy;override;
+    procedure SaveCfg(Cfg:TIniFile);
+    procedure FindMinMaxPressure(I1,I2:Integer; var mn,mx:Double;
+      CheckMinMax:Boolean);
+    procedure View1AutoZoomV;
+    procedure View1CenteringV;
+    procedure View1ChangeViewState;
+    procedure ZoomInV;
+    procedure ZoomOutV;
+    procedure CalculateLastMousePos;
+    procedure ShowDataAndTime(F:Single);
+    procedure DDSCheck;
+    function CalcAvg(i1,i2:Integer; DDS:Boolean): Double;
+    procedure CalcKB(i1,i2:Integer; DDS:Boolean; var K,B:Double);
+    procedure OnChangeData(Sender:TObject; var LCA:TListChangeAction);
+    procedure Set_TimeBegAndCap(var Beg:TDateTime; const Cap:TDateTime; UseBeg:Boolean);
+  public
+    property DDSLineLen:Integer write Set_DDSLineLen;
+    property DataNotChanged:Boolean read Get_DataNotChanged;
+    property Period:TDateTime read Get_Period;
+    property RecsPerDay:Integer read Get_RecsPerDay;
+    property LabelTime:TDateTime read Get_LabelTime write Set_LabelTime;
+  end;
+
+const
+  MaxScaleFactor=1/86400*(1e+7);
+  MinScaleFactor=1/86400;//*(5e+4);
+
+implementation
+
+uses UFrameGroup,SensorOptions, Main;
+
+{$R *.DFM}
+
+const
+  ScaleStep=1.25;
+
+constructor TFrameGraph.CreateFromIniSection(Owner:TComponent;
+  Ini,Cfg: TIniFile; const Section:String);
+var
+  SID:String;
+  RPD:Integer;
+  Delta:TPoint;
+begin
+  Create(Owner);
+  Self.Section:=Section;
+  View1.lockRender;
+  SID:=Section;
+  RPD:=Ini.ReadInteger(Section,'RecsPerDay',86400);
+  ADTrack:=TAnalogDataTrack.Create(SID, RPD);
+  // normal
+  ArcNL:=TADL_SrcData.Create(ADTrack,False);
+  SpyNL:=TADL_SrcData.Create(ADTrack,True);
+  SpyL:=SpyNL;
+  NL:=SpyNL;
+{$IFDEF UseFilters}
+  SBtnRed.Visible:=True;
+  SBtnOrange.Visible:=True;
+  //***** фильтры режима слежения
+  SpyFL[1]:=TADLF_ExpAvg.Create(SpyNL,FormMain.Alpha1);
+  SpyFL[2]:=TADLF_Krivizna.Create(SpyNL,0.9,0.7);
+//  SpyFL[2]:=TADLF_ExpAvg.Create(SpyNL,FormMain.Alpha2);
+  //***** фильтры режима просмотра архива
+  ArcFL[1]:=TADLF_ExpAvg.Create(ArcNL,FormMain.Alpha1);
+  ArcFL[2]:=TADLF_Krivizna.Create(ArcNL,0.9,0.7);
+//  ArcFL[2]:=TADLF_ExpAvg.Create(ArcNL,FormMain.Alpha2);
+  //
+  FL:=@SpyFL;
+{$ENDIF}
+  // screen
+  ScrL:=TADLF_Screen.Create(SpyNL);
+  MinGraphHeight:=0.5;
+//*****  LoadFromIniSection;
+  Caption:=Ini.ReadString(Section,'Caption','');
+  Kilometer:=Ini.ReadFloat(Section,'Km',0);
+  // Read configuration
+  MaxNoDataCnt:=Cfg.ReadInteger(Section,'MaxNoDataTime',60);
+  View1.ScaleY:=Cfg.ReadFloat(Section,'ScaleY',View1.ScaleY);
+  Delta:=View1.Delta;
+  Delta.y:=Cfg.ReadInteger(Section,'DeltaY',Delta.y);
+  View1.Delta:=Delta;
+  DDSHigh:=Cfg.ReadBool(Section,'DDSHigh',False);
+  ValueHigh:=Cfg.ReadFloat(Section,'ValueHigh',0.05);
+  DDSLow:=Cfg.ReadBool(Section,'DDSLow',False);
+  ValueLow:=Cfg.ReadFloat(Section,'ValueLow',0.05);
+  // Параметры автомата, определяющего допустимые отклонения
+  // High
+  HighAutoOn:=Cfg.ReadBool(Section,'HighAutoOn',False);
+  HighAlpha:=Cfg.ReadFloat(Section,'HighAlpha',0.9);
+  HighScale:=Cfg.ReadFloat(Section,'HighScale',3);
+  HighMin:=Cfg.ReadFloat(Section,'HighMin',0.01);
+  HighMax:=Cfg.ReadFloat(Section,'HighMax',0.1);
+  HighAutoV:=ValueHigh/HighScale;
+  // Low
+  LowAutoOn:=Cfg.ReadBool(Section,'LowAutoOn',False);
+  LowAlpha:=Cfg.ReadFloat(Section,'LowAlpha',0.9);
+  LowScale:=Cfg.ReadFloat(Section,'LowScale',3);
+  LowMin:=Cfg.ReadFloat(Section,'LowMin',0.01);
+  LowMax:=Cfg.ReadFloat(Section,'LowMax',0.1);
+  LowAutoV:=ValueLow/LowScale;
+  //
+  MinGraphHeight:=Cfg.ReadFloat(Section,'MinGraphHeight',0.5);
+//*****
+  SpyNL.addUpdateNotifier(OnChangeData);
+  PnlTools.DoubleBuffered:=True;
+  PnlData.DoubleBuffered:=True;
+  PnlTime.DoubleBuffered:=True;
+  AutoCenterPos:=1;
+end;
+
+procedure TFrameGraph.View1Render(Sender: TBufferedScroller);
+const
+  PressureScaleParams:array[0..3] of TScaleParamsRec=(
+    (Base:10; Min:-MaxInt; Max:+MaxInt),
+    (Base:2; Min:-2; Max:-1),
+    (Base:5; Min:-1; Max:+MaxInt),
+    (Base:4; Min:-1; Max:+MaxInt)
+  );
+  TimeScaleParams:array[0..11] of TScaleParamsRec=(
+    (Base:2; Min:-2; Max:+2),
+    (Base:3; Min:-1; Max:-1),
+    (Base:6; Min:-1; Max:-1),
+    (Base:5; Min:+1; Max:+1),
+    (Base:12;Min:-1; Max:-1),
+    (Base:15;Min:+1; Max:+1),
+    (Base:20;Min:+1; Max:+1),
+    (Base:30;Min:-1; Max:+1),
+    (Base:60;Min:-1; Max:+1),
+    (Base:120;Min:+1; Max:+1),
+    (Base:240;Min:+1; Max:+1),
+    (Base:360;Min:+1; Max:+1)
+  );
+  Spectrum:array[1..7] of Byte=($30,$38,$3C,$0C,$0B,$03,$23);
+var
+  BS:TUniViewer absolute Sender;
+  i,x,dx,dy,ts:Integer;
+  D:TPoint;
+  C:TCanvas;
+  CW:TBMP256CanvasWrapper;
+  CR,R:TRect;
+  SrcRect:TDblRect;
+  MinVis,MaxVis,RCSize,DP:TDblPoint;
+  Value:Double;
+  SPP,SPT:record StartValue,Step,EndValue:Double; Count,Digits:Integer; end;
+  ST:TSystemTime;
+  S:String;
+  NeedMoveTo:Boolean;
+  ShowHour:Boolean;
+  StartTime:TDateTime;
+
+  procedure DrawPressureGraph(const ADL:TAnalogDataList;
+    K,B:Double;
+    C1,C2:TColor);
+  var
+    i:Integer;
+    L:TADDynamicArray;
+    Period:TDateTime;
+    Offs:TDateTime;
+  begin
+    L:=ADL.I;
+    Period:=ADL.Period;
+    // График давления
+    C.Pen.Color:=C1;
+    DP.x:=0;
+    NeedMoveTo:=True;
+    Offs:=ADL.BegTime-StartTime;
+    for I:=0 to High(L) do begin
+      if ValidAD(L[i]) then begin
+        DP.x:=Offs+I*Period;
+        DP.y:=MaxViewP-(L[i].Value*K+B);
+        if NeedMoveTo then CW.AAMoveTo(DP);
+        CW.AALineTo(DP);
+        NeedMoveTo:=False;
+        C.Pen.Color:=C1;
+      end
+      else C.Pen.Color:=C2;
+    end;
+  end;
+
+begin
+  if (csLoading in ComponentState) or (Parent=nil) then exit;
+  with BS as TUniViewer do begin
+    C:=Buffer.Canvas;
+    D:=Delta;
+    CR:=ClientRect;
+  end;
+  MinVis:=BS.RealDelta;
+  RCSize:=BS.RealClientSize;
+  MaxVis.x:=MinVis.x+RCSize.x;
+  MaxVis.y:=MinVis.y+RCSize.y;
+  StartTime:=ScrL.BegTime;
+
+//***** Очистка фона
+  C.Brush.Style:=bsSolid;
+  C.Brush.Color:=PaletteIndex(0);
+  C.FillRect(CR);
+  C.Brush.Style:=bsClear;
+  C.Pen.Width:=1;
+  C.Font.Assign(Font);
+//***** Линии шкалы давления
+  R:=CR;
+  Sender.OnGetRegionRect(BS,2,dx,dy,R);
+  // Рассчитывем параметры
+  ts:=C.TextHeight('0')*3 div 4;
+  CalcScaleParams(
+    (MaxViewP-MinVis.y), RCSize.y, (R.Bottom-R.Top) div ts+1,
+    PressureScaleParams,
+    SPP.StartValue,SPP.Step,SPP.Digits,SPP.Count);
+  SPP.EndValue:=MinViewP-SPP.Step;
+  Value:=SPP.StartValue;
+  // Рисуем
+  C.Pen.Color:=PaletteIndex($14);
+  for I:=0 to SPP.Count do begin
+    D.y:=Trunc((MaxViewP-Value-MinVis.y)*BS.Scale.y);
+    C.MoveTo(R.Left,D.y); C.LineTo(CR.Right,D.y);
+    Value:=Value-SPP.Step;
+    if Value<SPP.EndValue then break;
+  end;
+
+//***** Шкала времени
+  R:=CR;
+  Sender.OnGetRegionRect(BS,3,dx,dy,R);
+  C.Pen.Color:=PaletteIndex($16);//010111
+  C.Font.Color:=PaletteIndex($16);//101011
+  ts:=C.TextWidth('00_00_ ');
+  // Рассчитывем параметры шкалы
+  CalcScaleParams(
+    (StartTime+MinVis.x)*24*60, RCSize.x*24*60, (R.Right-R.Left) div ts+1,
+    TimeScaleParams,
+    SPT.StartValue,SPT.Step,SPT.Digits,SPT.Count);
+  ts:=C.TextWidth('00_00_');
+  SPT.EndValue:=ScrL.EndTime*24*60+SPT.Step;
+  Value:=SPT.StartValue;
+  ShowHour:=SPT.Step>0.999;
+  // Рисуем
+  for I:=0 to SPT.Count+1 do begin
+    D.x:=R.Left+Trunc((Value*dtOneMinute-MinVis.x-StartTime)*BS.Scale.x);
+    C.MoveTo(D.x,CR.Top); C.LineTo(D.x,R.Top);
+    DateTimeToSystemTime(Value*dtOneMinute,ST);
+    if ShowHour
+    then C.TextOut(D.x-ts,R.Top-1,Format('%.2dЧ%.2dМ',[ST.wHour,ST.wMinute]))
+    else C.TextOut(D.x-ts,R.Top-1,Format('%.2dМ%.2dС',[ST.wMinute,ST.wSecond]));
+    Value:=Value+SPT.Step;
+    if Value>SPT.EndValue then break;
+  end;
+
+//*** Цифровые отметки на шкале давления
+  R:=CR;
+  Sender.OnGetRegionRect(BS,2,dx,dy,R);
+//  C.Font.Assign(Font);
+  C.Pen.Color:=PaletteIndex($15);
+  ts:=C.TextHeight('0');
+  // Рисуем
+  Value:=SPP.StartValue;
+  for I:=0 to SPP.Count do begin
+    D.y:=Trunc((MaxViewP-Value-MinVis.y)*BS.Scale.y);
+    if SPP.Digits>0
+    then Str(Value:SPP.Digits+3:SPP.Digits,S)
+    else Str(Value:2:0,S);
+    if S[Length(S)]='0'
+    then C.Font.Color:=PaletteIndex($3C)
+    else C.Font.Color:=PaletteIndex($28);
+    C.TextOut(R.Left,D.y-ts shr 1,S);
+    Value:=Value-SPP.Step;
+    if Value<SPP.EndValue then break;
+  end;
+
+//***** График давления
+  R:=CR;
+  Sender.OnGetRegionRect(BS,1,dx,dy,R);
+  SrcRect.x1:=MinVis.x;
+  SrcRect.y1:=MinViewP+MinVis.y;
+  SrcRect.x2:=MaxVis.x;
+  SrcRect.y2:=MinViewP+MaxVis.y;
+
+  CW:=TBMP256CanvasWrapper.Create(BS.Buffer);
+  try
+    CW.SetConversion(SrcRect,R);
+    if SpyMode then begin
+      if DDSHigh then begin
+        // Верхняя ограничивающая линия
+        if DDSAlarmHigh
+        then C.Pen.Color:=PaletteIndex($30)
+        else C.Pen.Color:=PaletteIndex($0C);
+        DP.x:=High(ScrL.I)*ScrL.Period;
+        DP.y:=MaxViewP-(MaxValidP2-MinViewP);
+        CW.AAMoveTo(DP);
+        DP.x:=DP.x-FDDSLineLen*Period;
+        DP.y:=MaxViewP-(MaxValidP1-MinViewP);
+        CW.AALineTo(DP);
+      end;
+      if DDSLow then begin
+        // Нижняя ограничивающая линия
+        if DDSAlarmLow
+        then C.Pen.Color:=PaletteIndex($30)
+        else C.Pen.Color:=PaletteIndex($0C);
+        DP.x:=MaxVis.x;//High(ScrL.I)*ScrL.Period;
+        DP.y:=MaxViewP-(MinValidP2-MinViewP);
+        CW.AAMoveTo(DP);
+        DP.x:=DP.x-FDDSLineLen*Period;
+        DP.y:=MaxViewP-(MinValidP1-MinViewP);
+        CW.AALineTo(DP);
+      end;
+    end
+    else begin
+      // Вертикальная метка
+      case LabelActive of
+      1,2: C.Pen.Color:=PaletteIndex($35);
+      else C.Pen.Color:=PaletteIndex($10);
+      end;
+      DP.x:=LabelPosF*ScrL.Period;
+      DP.y:=SrcRect.y1; CW.AAMoveTo(DP);
+      DP.y:=SrcRect.y2; CW.AALineTo(DP);
+    end;
+    // Надпись (название)
+
+    if SpyMode
+    then S:=Caption
+    else S:=Caption+' ('+Format('%g',[Kilometer])+' км)';
+    if Focused
+    then C.Font.Color:=PaletteIndex($3F)
+    else C.Font.Color:=PaletteIndex($2A);
+    i:=C.TextWidth(S);
+    x:=CR.Right-i shr 1;
+    if View1.Left+x+i>PnlData.Left
+    then x:=PnlData.Left-View1.Left-i;
+    if x<1 then x:=1;
+    C.TextOut(x,1,S);
+{
+    // Средняя линия
+    C.Pen.Color:=PaletteIndex($20);
+    DP.x:=MinVis.x;
+    DP.y:=(MaxViewP+MinViewP)*0.5;
+    CW.AAMoveTo(DP);
+    DP.x:=MaxVis.x;
+    CW.AALineTo(DP);
+}
+    // Собственно, графики
+    if SBtnWhite.Down
+    then DrawPressureGraph(ScrL,1,-MinViewP,
+      PaletteIndex($3F),PaletteIndex($3A));
+{$IFDEF UseFilters}
+    if SBtnRed.Down
+    then DrawPressureGraph(FL[1],1,-MinViewP,
+      PaletteIndex(Spectrum[1]), PaletteIndex(Spectrum[1]) );
+    if SBtnOrange.Down
+    then DrawPressureGraph(FL[2],5,RCSize.y*0.5,//-MinViewP,
+      PaletteIndex(Spectrum[2]), PaletteIndex(Spectrum[2]) );
+{$ENDIF}
+  finally
+    CW.Free;
+  end;
+{$IFDEF ShowDrawCnt}
+  Inc(RCnt);
+  C.Font.Color:=PaletteIndex($30);
+  C.TextOut(0,0,IntToStr(RCnt));
+{$ENDIF}
+end;
+
+function TFrameGraph.View1GetRegionRect(BS: TBufferedScroller;
+  RegionNum: Integer; var dx, dy: Integer; var R: TRect): Integer;
+var
+  FF:TPoint;
+begin
+  Result:=4;
+  FF:=BS.FixedField;
+  case RegionNum of
+    1:begin
+      Inc(R.Left,FF.x);
+      Dec(R.Bottom,FF.y);
+    end;
+    2:begin
+      R.Right:=R.Left+FF.x;
+      Dec(R.Bottom,FF.y);
+      dx:=0;
+    end;
+    3:begin
+      Inc(R.Left,FF.x);
+      R.Top:=R.Bottom-FF.y;
+      dy:=0;
+    end;
+    4:begin
+      R.Right:=R.Left+FF.x;
+      R.Top:=R.Bottom-FF.y;
+      dx:=0;
+      dy:=0;
+    end;
+  end;
+end;
+
+destructor TFrameGraph.Destroy;
+{$IFDEF UseFilters}
+var
+  i:Integer;
+{$ENDIF}
+begin
+  ScrL.Free;
+{$IFDEF UseFilters}
+  for i:=High(ArcFL) downto 1 do begin
+    ArcFL[i].Free; SpyFL[i].Free;
+  end;
+{$ENDIF}
+  ArcNL.Free; SpyNL.Free;
+  inherited;
+end;
+
+procedure TFrameGraph.FindMinMaxPressure(I1, I2: Integer;
+  var mn,mx:Double; CheckMinMax:Boolean);
+var
+  i:Integer;
+  First:Boolean;
+  val,mid:Double;
+begin
+  First:=True;
+  mn:=0; mx:=0;
+  for i:=I1 to I2 do begin
+    if not ValidAD(ScrL.I[i]) then continue;
+    val:=ScrL.I[i].Value;
+    if First then begin
+      mn:=val; mx:=mn; First:=False;
+    end
+    else if val<mn
+    then mn:=val
+    else if mx<val
+    then mx:=val;
+  end;
+  val:=(mx-mn)*0.4; mx:=mx+val; //mn:=mn-val;
+  if CheckMinMax and (mx-mn<MinGraphHeight) then begin
+    mid:=(mn+mx)*0.5;
+    mn:=mid-0.5*MinGraphHeight;
+    mx:=mid+0.5*MinGraphHeight;
+  end;
+end;
+
+procedure TFrameGraph.View1AutoZoomV;
+begin
+  try
+    View1.ScaleY:=(View1.ClientHeight-View1.FixedField.y)/View1.RealSize.y;
+  except
+    Application.MessageBox('','Сбой в программе',MB_OK);
+  end;
+end;
+
+procedure TFrameGraph.View1Resize(Sender: TObject);
+var
+  W:Integer;
+  RS:TDblPoint;
+begin
+  W:=View1.ClientWidth;
+  ScrL.Capacity:=W;
+  RS:=View1.RealSize;
+  RS.x:=ScrL.ScrTimeCapacity;
+  View1.RealSize:=RS;
+  View1.ScaleX:=W/RS.x;
+  View1ChangeViewState;
+end;
+
+procedure TFrameGraph.View1CenteringV;
+const
+  OneHalf=1/6;
+var
+  i,i1,i2,Cnt:Integer;
+  mp:Double;
+  RCH2:Double;
+  Delta:TPoint;
+begin
+  Cnt:=MaxViewI-MinViewI;
+  i1:=MinViewI+Round((AutoCenterPos-OneHalf)*Cnt);
+  if i1<MinViewI then i1:=MinViewI;
+  i2:=MinViewI+Round((AutoCenterPos+OneHalf)*Cnt);
+  if MaxViewI<i2 then i2:=MaxViewI;
+  mp:=0;
+  Cnt:=0;
+  for i:=i1 to i2 do begin
+    if not ValidAD(ScrL.I[i]) then continue;
+    Inc(Cnt);
+    mp:=mp+ScrL.I[i].Value;
+  end;
+  if Cnt>0 then mp:=mp/Cnt;
+  Delta:=View1.Delta;
+  RCH2:=View1.RealClientSize.y*0.5;
+  Delta.y:=Round((View1.RealSize.y-(mp-{}MinViewP)-RCH2)*View1.Scale.y);
+  View1.Delta:=Delta;
+end;
+
+procedure TFrameGraph.View1ChangeViewState;
+var
+  MinVis,MaxVis,RC,RS:TDblPoint;
+begin
+  if LockViewState then exit;
+  View1.lockRender;
+  View1.HorzSB.lockRedraw;
+  View1.VertSB.lockRedraw;
+  LockViewState:=True;
+  MinVis:=View1.RealDelta;
+  RC:=View1.RealClientSize;
+  RS:=View1.RealSize;
+  MaxVis.x:=MinVis.x+RC.x;
+  MaxVis.y:=MinVis.y+RC.y;
+  MinViewI:=0;
+  MaxViewI:=ScrL.Capacity-1;
+
+  FindMinMaxPressure(MinViewI,MaxViewI,MinViewP,MaxViewP,True);
+  RS.y:=MaxViewP-MinViewP;
+  View1.RealSize:=RS;
+  if SpdBtnAutoZoom.Down
+  then View1AutoZoomV
+  else View1CenteringV;
+
+  LockViewState:=False;
+  View1.VertSB.unlockRedraw;
+  View1.HorzSB.unlockRedraw;
+  View1.unlockRender;
+end;
+
+procedure TFrameGraph.SpdBtnAutoZoomClick(Sender: TObject);
+begin
+  View1ChangeViewState;
+  SpdBtnZoomIn.Enabled:=True;
+  SpdBtnZoomOut.Enabled:=True;
+end;
+
+procedure TFrameGraph.ZoomInV;
+var
+  S:Double;
+begin
+  SpdBtnZoomOut.Enabled:=True;
+  View1.lockRender;
+  S:=View1.ScaleY;
+  S:=S*ScaleStep;
+  if S>99999 then begin
+    S:=99999;
+    SpdBtnZoomIn.Enabled:=False;
+  end;
+  View1.ScaleY:=S;
+  View1ChangeViewState;
+  View1.unlockRender;
+end;
+
+procedure TFrameGraph.ZoomOutV;
+var
+  S:Double;
+begin
+  SpdBtnZoomIn.Enabled:=True;
+  View1.lockRender;
+  S:=View1.ScaleY;
+  S:=S/ScaleStep;
+  if S<0.5 then begin
+    S:=0.5;
+    SpdBtnZoomOut.Enabled:=False;
+  end;
+  View1.ScaleY:=S;
+  View1ChangeViewState;
+  View1.unlockRender;
+end;
+
+procedure TFrameGraph.SpdBtnZoomInClick(Sender: TObject);
+begin
+  SpdBtnAutoZoom.Down:=False;
+  ZoomInV;
+end;
+
+procedure TFrameGraph.SpdBtnZoomOutClick(Sender: TObject);
+begin
+  SpdBtnAutoZoom.Down:=False;
+  ZoomOutV;
+end;
+
+procedure TFrameGraph.View1MouseMove(Sender: TObject;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if (ssLeft in Shift) and ((MouseDownPos.x<>X) or (MouseDownPos.y<>Y))
+  then MouseMovedAfterDown:=True;
+  LastMousePos.X:=X;
+  LastMousePos.Y:=Y;
+  CalculateLastMousePos;
+  if LastMousePosF>=0 then begin
+    MouseShowDataTicks:=5;
+    ShowDataAndTime(LastMousePosF);
+    if (ssCtrl in Shift) then begin
+      AutoCenterPos:=X/View1.Width;
+      if not SpdBtnAutoZoom.Down then View1ChangeViewState;
+    end;
+  end;
+end;
+
+procedure TFrameGraph.CalculateLastMousePos;
+var
+  f:Single;
+begin
+  f:=ScrL.Capacity*View1.RealDelta.X/View1.RealSize.X +
+    LastMousePos.x/(ScrL.Period*View1.Scale.x);
+  if (f<0) or (ScrL.Capacity<=f) then begin f:=-1; end;
+  LastMousePosF:=f;
+end;
+
+procedure TFrameGraph.TimerProc;
+var
+  SSR:Int64;
+{$IFDEF UseFilters}
+  FSR:Int64;
+{$ENDIF}
+  NeedShow:Boolean;
+begin
+  NeedShow:=False;
+try
+  SSR:=ScrL.StartRec;
+{$IFDEF UseFilters}
+  FSR:=FL[1].StartRec;
+{$ENDIF}
+  if not ADTrack.OnTimer then begin
+    if NoDataCnt<=MaxNoDataCnt then begin
+      Inc(NoDataCnt);
+      if DataNotChanged and SpyMode then begin
+        NeedShow:=True;
+        NeedRedraw:=True;
+      end;
+    end;
+  end
+  else if SpyMode then begin
+    NoDataCnt:=0;
+{$IFDEF UseFilters}
+    NeedRedraw:=(ScrL.StartRec<>SSR) or (FL[1].StartRec<>FSR);
+{$ELSE}
+    NeedRedraw:=(ScrL.StartRec<>SSR);
+{$ENDIF}
+    if MouseShowDataTicks=0 then NeedShow:=True;
+  end;
+  if SpyMode and (MouseShowDataTicks>0) then begin
+    Dec(MouseShowDataTicks);
+    if MouseShowDataTicks=0 then NeedShow:=True;
+  end;
+  if NeedShow then ShowDataAndTime(ScrL.Capacity-1);
+  if NeedRedraw then begin
+     NeedRedraw:=False;
+     View1ChangeViewState;
+  end;
+except
+end;
+end;
+
+procedure TFrameGraph.ShowDataAndTime(F:Single);
+var
+  s2,s1:String;
+  i,W:Integer;
+begin
+  s1:=' ';
+  i:=Trunc(f);
+  if (0<=i) and (i<ScrL.Capacity) then begin
+    s2:=MyTimeToStr(ScrL.BegTime+f*ScrL.Period);
+    s1:=MyADToStr(ScrL.I[i]);
+  end
+  else MouseShowDataTicks:=0;
+  // Set PnlData
+  PnlData.Font.Color:=GetDataColor;
+  W:=GetTextExtent(PnlData.Font,s1).cx;
+  if W<PnlData.Constraints.MinWidth
+  then W:=PnlData.Constraints.MinWidth;
+  PnlData.Left:=ClientWidth-W;
+  PnlData.Width:=W;
+  PnlData.Caption:=s1;
+  // Set PnlTime
+  PnlTime.Font.Color:=GetTimeColor;
+  W:=GetTextExtent(PnlTime.Font,s2).cx;
+  if W<PnlTime.Constraints.MinWidth
+  then W:=PnlTime.Constraints.MinWidth;
+  PnlTime.Left:=ClientWidth-W;
+  PnlTime.Width:=W;
+  PnlTime.Caption:=s2;
+end;
+
+procedure TFrameGraph.SaveCfg(Cfg: TIniFile);
+begin
+  Cfg.WriteFloat(Section,'ScaleY',View1.ScaleY);
+  Cfg.WriteInteger(Section,'DeltaY',View1.Delta.y);
+  Cfg.WriteInteger(Section,'DDSHigh',Integer(DDSHigh));
+  Cfg.WriteFloat(Section,'ValueHigh',ValueHigh);
+  Cfg.WriteInteger(Section,'DDSLow',Integer(DDSLow));
+  Cfg.WriteFloat(Section,'ValueLow',ValueLow);
+  // Auto High
+  Cfg.WriteInteger(Section,'HighAutoOn',Integer(HighAutoOn));
+  Cfg.WriteFloat(Section,'HighScale',HighScale);
+  Cfg.WriteFloat(Section,'HighAlpha',HighAlpha);
+  Cfg.WriteFloat(Section,'HighMin',HighMin);
+  Cfg.WriteFloat(Section,'HighMax',HighMax);
+  // Auto Low
+  Cfg.WriteInteger(Section,'LowAutoOn',Integer(LowAutoOn));
+  Cfg.WriteFloat(Section,'LowScale',LowScale);
+  Cfg.WriteFloat(Section,'LowAlpha',LowAlpha);
+  Cfg.WriteFloat(Section,'LowMin',LowMin);
+  Cfg.WriteFloat(Section,'LowMax',LowMax);
+  //
+  Cfg.WriteFloat(Section,'MinGraphHeight',MinGraphHeight);
+  Cfg.WriteInteger(Section,'MaxNoDataTime',MaxNoDataCnt);
+end;
+
+procedure TFrameGraph.View1MouseLeave(Sender: TObject);
+begin
+  MouseShowDataTicks:=0;
+  ShowDataAndTime(ScrL.Capacity-1)
+end;
+
+procedure TFrameGraph.SpdBtnOptionsClick(Sender: TObject);
+var
+  FDO:TFormSensorOptions;
+  MR:TModalResult;
+begin
+  FDO:=TFormSensorOptions.Create(Owner);
+  FDO.Caption:=TForm(Owner).Caption+' : Датчик '+ADTrack.StrTrackID;
+  // High
+  FDO.rbtnHighManual.Checked:=not HighAutoOn;
+  FDO.cbHigh.Checked:=DDSHigh;
+  FDO.edHigh.Text:=Format('%g',[ValueHigh]);
+  FDO.rbtnHighAuto.Checked:=HighAutoOn;
+  FDO.edHighAlpha.Text:=Format('%g',[HighAlpha]);
+  FDO.edHighScale.Text:=Format('%g',[HighScale]);
+  FDO.edHighMin.Text:=Format('%g',[HighMin]);
+  FDO.edHighMax.Text:=Format('%g',[HighMax]);
+  // Low
+  FDO.rbtnLowManual.Checked:=not LowAutoOn;
+  FDO.cbLow.Checked:=DDSLow;
+  FDO.edLow.Text:=Format('%g',[ValueLow]);
+  FDO.rbtnLowAuto.Checked:=LowAutoOn;
+  FDO.edLowAlpha.Text:=Format('%g',[LowAlpha]);
+  FDO.edLowScale.Text:=Format('%g',[LowScale]);
+  FDO.edLowMin.Text:=Format('%g',[LowMin]);
+  FDO.edLowMax.Text:=Format('%g',[LowMax]);
+  //
+  FDO.edAlphaSpy.Text:=Format('%g',[0.9{SpyFL.Alpha}]);
+  FDO.edAlphaArc.Text:=Format('%g',[0.9{ArcFL.Alpha}]);
+  FDO.edMinGraphHeight.Text:=Format('%g',[MinGraphHeight]);
+  FDO.edMaxNoDataTime.Text:=IntToStr(MaxNoDataCnt);
+  FDO.edKilometer.Text:=Format('%g',[Kilometer]);
+  repeat
+    MR:=FDO.ShowModal;
+    if MR<>mrCancel then begin
+      // High
+      HighAutoOn:=FDO.rbtnHighAuto.Checked;
+      DDSHigh:=FDO.cbHigh.Checked;
+      ValueHigh:=FDO.HighValue;
+      HighAlpha:=FDO.HighAlpha;
+      HighScale:=FDO.HighScale;
+      HighMin:=FDO.HighMin;
+      HighMax:=FDO.HighMax;
+      // Low
+      LowAutoOn:=FDO.rbtnLowAuto.Checked;
+      DDSLow:=FDO.cbLow.Checked;
+      ValueLow:=FDO.LowValue;
+      LowAlpha:=FDO.LowAlpha;
+      LowScale:=FDO.LowScale;
+      LowMin:=FDO.LowMin;
+      LowMax:=FDO.LowMax;
+      //
+      MinGraphHeight:=FDO.MinGraphHeight;
+//      SpyFL.Alpha:=FDO.AlphaSpy;
+//      ArcFL.Alpha:=FDO.AlphaArc;
+      MaxNoDataCnt:=FDO.MaxNoDataTime;
+      Kilometer:=FDO.Kilometer;
+      DDSCheck;
+      View1ChangeViewState
+    end;
+  until MR<>mrRetry;
+  FDO.Free;
+end;
+
+procedure TFrameGraph.DDSCheck;
+var
+  CntBelow,CntAbove:Integer;
+  cur,val,K,B,H,L:Double;
+  Delta,DeltaAbove,DeltaBelow:Double;
+  PrevBelowMin,PrevAboveMax:Boolean;
+  AlarmHigh,AlarmLow:Boolean;
+  i,i1,imid,i2:Integer;
+begin
+  i1:=SpyNL.Capacity-FDDSLineLen; if i1<0 then i1:=0;
+  i2:=SpyNL.Capacity-1;
+  AvgP:=CalcAvg(i1,i2,False);
+  AlarmHigh:=False;
+  AlarmLow:=False;
+  CalcKB(i1,i2,True,K,B);
+  AvgP1:=K*i1+B;
+  AvgP2:=K*i2+B;
+  // Определяем допустимые отклонения от линейной аппроксимации
+  if HighAutoOn then begin
+    H:=HighAutoV*HighScale;
+    if H<HighMin then H:=HighMin else if HighMax<H then H:=HighMax;
+  end
+  else H:=ValueHigh;
+  if LowAutoOn then begin
+    L:=LowAutoV*LowScale;
+    if L<LowMin then L:=LowMin else if LowMax<L then L:=LowMax;
+  end
+  else L:=ValueLow;
+  MinValidP1:=-MaxInt; MaxValidP1:=+MaxInt;
+  MinValidP2:=-MaxInt; MaxValidP2:=+MaxInt;
+  if DDSHigh then begin
+    MaxValidP1:=AvgP1+H;
+    MaxValidP2:=AvgP2+H;
+  end;
+  if DDSLow then begin
+    MinValidP1:=AvgP1-L;
+    MinValidP2:=AvgP2-L;
+  end;
+  PrevBelowMin:=True;
+  PrevAboveMax:=True;
+  cur:=AvgP1;
+  CntBelow:=0; DeltaBelow:=0;
+  CntAbove:=0; DeltaAbove:=0;
+  imid:=(i1+i2) div 2;
+  for i:=i1 to i2 do begin
+    if ValidAD(SpyL.I[i]) then begin
+      val:=SpyL.I[i].Value;
+      Delta:=val-cur;
+      if Delta<0 then begin
+        Inc(CntBelow);
+        DeltaBelow:=DeltaBelow-Delta;
+      end
+      else begin
+        Inc(CntAbove);
+        DeltaAbove:=DeltaAbove+Delta;
+      end;
+      if Delta<-L then begin
+        if DDSLow and not PrevBelowMin and (i>imid)
+        then AlarmLow:=true;
+        PrevBelowMin:=True;
+        PrevAboveMax:=False;
+      end
+      else if +H<Delta then begin
+        if DDSHigh and not PrevAboveMax and (i>imid)
+        then AlarmHigh:=true;
+        PrevBelowMin:=False;
+        PrevAboveMax:=True;
+      end
+      else begin
+        PrevBelowMin:=False;
+        PrevAboveMax:=False;
+      end;
+    end;
+    cur:=cur+K;
+  end;
+  if CntAbove>0
+  then HighAutoV:=HighAutoV*HighAlpha+DeltaAbove*(1-HighAlpha)/CntAbove;
+  if CntBelow>0
+  then LowAutoV :=LowAutoV*LowAlpha+DeltaBelow*(1-LowAlpha)/CntBelow;
+  if DDSHigh or DDSLow then begin
+    DDSAlarm:=DDSAlarm or
+      (AlarmHigh and not DDSAlarmHigh) or
+      (AlarmLow and not DDSAlarmLow);
+    DDSAlarmHigh:=AlarmHigh;
+    DDSAlarmLow:=AlarmLow;
+  end;
+end;
+
+function TFrameGraph.Get_DataNotChanged: Boolean;
+begin
+  Result:=NoDataCnt>MaxNoDataCnt;
+end;
+
+function TFrameGraph.Get_SpyMode: Boolean;
+begin
+  Result:=NL=SpyNL;
+end;
+
+procedure TFrameGraph.Set_SpyMode(const Value: Boolean);
+begin
+  if Value = SpyMode then exit;
+  if Value then begin
+    NL:=SpyNL;
+{$IFDEF UseFilters}
+    FL:=@SpyFL;
+{$ENDIF}
+    ScrL.SrcData:=SpyNL;
+    View1ChangeViewState;
+    ShowDataAndTime(ScrL.Capacity-1);
+  end
+  else ArcEndTime:=ArcNL.EndTime; // refresh :)
+end;
+
+procedure TFrameGraph.Set_ArcEndTime(const Value: TDateTime);
+begin
+  ArcNL.EndTime:=Value;
+  NL:=ArcNL;
+{$IFDEF UseFilters}
+  FL:=@ArcFL;
+{$ENDIF}
+  ScrL.SrcData:=ArcNL;
+  View1ChangeViewState;
+  if (MouseShowDataTicks>0) and (LastMousePosF>0)
+  then ShowDataAndTime(LastMousePosF)
+  else ShowDataAndTime(ScrL.Capacity-1);
+end;
+
+procedure TFrameGraph.View1Click(Sender: TObject);
+begin
+  View1.lockRender;
+  SetFocus;
+  LabelPosF:=LastMousePosF;
+  if SpyMode
+  then TFrameGroup(Parent).QueryArcView(SpyEndTime)
+  else View1ChangeViewState;
+  View1.unlockRender;
+end;
+
+procedure TFrameGraph.View1MouseDown(Sender: TObject;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  if Button=mbLeft then begin
+    MouseDownPos.X:=X;
+    MouseDownPos.Y:=Y;
+    MouseMovedAfterDown:=False;
+  end;
+end;
+
+function TFrameGraph.PaletteIndex(i: Word): COLORREF;
+begin
+  if FNegative then i:=(not i) and $3F;
+  Result := $01000000 or i;
+end;
+
+procedure TFrameGraph.miCopyClick(Sender: TObject);
+var
+  R:TRect;
+  B:TBitmap;
+begin
+  B:=View1.Buffer;
+  R.Top:=0; R.Left:=0; R.Bottom:=B.Height; R.Right:=B.Width;
+  CopyToClipboard(B.Canvas,R);
+end;
+
+function TFrameGraph.CalcAvg(i1, i2:Integer; DDS:Boolean): Double;
+var
+  i,Cnt:Integer;
+  avg,val:Double;
+begin
+  avg:=0; Cnt:=0;
+  for i:=i1 to i2 do begin
+    if not ValidAD(SpyL.I[i]) then continue;
+    val:=SpyL.I[i].Value;
+    avg:=avg+val;
+    Inc(Cnt);
+  end;
+  if Cnt>0 then avg:=avg/Cnt else avg:=Self.AvgP;
+  Result:=avg;
+end;
+
+procedure TFrameGraph.CalcKB(i1, i2: Integer; DDS:Boolean; var K,B:Double);
+var
+  i,n:Integer;
+  Xi,Yi:Double;
+  p,q,r,s:Double;
+begin
+  p:=0; q:=0; r:=0; s:=0;
+  n:=0;
+  for i:=i1 to i2 do begin
+    if not ValidAD(SpyL.I[i]) then continue;
+    Yi:=SpyL.I[i].Value;
+    Xi:=i;
+    p:=p+Xi*Xi;
+    q:=q+Xi;
+    r:=r+Xi*Yi;
+    s:=s+Yi;
+    Inc(n);
+  end;
+  if n>1 then begin
+    try
+      K:=(n*r-q*s)/(n*p-q*q);
+    except
+      K:=0;
+    end;
+    B:=(s-K*q)/n;
+  end
+  else begin
+    K:=0; B:=0;
+  end;
+end;
+
+function TFrameGraph.Get_Period: TDateTime;
+begin
+  Result:=NL.Period;
+end;
+
+function TFrameGraph.Get_RecsPerDay: Integer;
+begin
+  Result:=NL.RecsPerDay;
+end;
+
+function TFrameGraph.Get_ArcEndTime: TDateTime;
+begin
+  Result:=ArcNL.EndTime;
+end;
+
+function TFrameGraph.Get_SpyEndTime: TDateTime;
+begin
+  Result:=SpyNL.EndTime;
+end;
+
+procedure TFrameGraph.OnChangeData(Sender: TObject;
+  var LCA: TListChangeAction);
+begin
+  NeedRedraw:=SpyMode;
+  if LCA.Action=lcaUpdate then DDSCheck;
+end;
+
+procedure TFrameGraph.Set_TimeCapacity(const Value: TDateTime);
+var
+  RS:TDblPoint;
+begin
+  View1.lockRender;
+  ScrL.TimeCapacity:=Value;
+  RS.x:=ScrL.ScrTimeCapacity;
+  RS.y:=View1.RealSize.y;
+  View1.RealSize:=RS;
+  View1.ScaleX:=View1.ClientSize.x/RS.x;
+  View1ChangeViewState;
+  View1.unlockRender;
+end;
+
+function TFrameGraph.Get_TimeCapacity: TDateTime;
+begin
+  Result:=ScrL.TimeCapacity;
+end;
+
+procedure TFrameGraph.Set_DDSLineLen(const Value: Integer);
+begin
+  FDDSLineLen:=Round(Value*dtOneSecond/Period);
+end;
+
+procedure TFrameGraph.Set_TimeBegAndCap(var Beg: TDateTime;
+  const Cap: TDateTime; UseBeg:Boolean);
+var
+  MidTime:TDateTime;
+begin
+  View1.lockRender;
+  MidTime:=ScrL.BegTime+ScrL.ScrTimeCapacity*0.5;
+  if not UseBeg then begin
+    if (ScrL.BegTime<=LabelTime) and (LabelTime<=ScrL.EndTime)
+    then MidTime:=LabelTime;
+  end;
+  TimeCapacity:=Cap;
+  if not UseBeg then Beg:=MidTime-ScrL.ScrTimeCapacity*0.5;
+  ScrL.BegTime:=Beg;
+  View1.unlockRender;
+end;
+
+procedure TFrameGraph.Set_Negative(const Value: Boolean);
+var
+  clStTxt:TColor;
+begin
+  if FNegative=Value then exit;
+  FNegative := Value;
+  View1ChangeViewState;
+  if Value then clStTxt:=clWhite else clStTxt:=clBlack;
+  PnlTime.Color:=clStTxt;
+  PnlData.Color:=clStTxt;
+end;
+
+procedure TFrameGraph.FrameEnter(Sender: TObject);
+begin
+  TFrameGroup(Parent).NotifyActivity(Self);
+  PnlTools.Color:=clYellow;
+  View1ChangeViewState;
+end;
+
+procedure TFrameGraph.FrameExit(Sender: TObject);
+begin
+  PnlTools.Color:=clBlack;
+  View1ChangeViewState;
+end;
+
+procedure TFrameGraph.MyPaintTo(dc: HDC; X, Y: Integer);
+begin
+  View1.PaintTo(dc,X,Y+View1.Top);
+  PnlData.PaintTo(dc,X+PnlData.Left,Y+PnlData.Top);
+  PnlTime.PaintTo(dc,X+PnlTime.Left,Y+PnlTime.Top);
+end;
+
+function TFrameGraph.MyTimeToStr(const T: TDateTime): String;
+const
+  OneDivSecond=1/dtOneSecond;
+begin
+  if Int(T)<>Int(Now)
+  then Result:=DateToStr(T)+' '
+  else Result:='';
+  Result:=' '+Result+TimeToStr(T)+'.'+IntToStr(Abs(Round(Frac(T*OneDivSecond)*10)) mod 10);
+end;
+
+function TFrameGraph.MyADToStr(const AD: TAnalogData): String;
+begin
+  if ValidAD(AD)
+  then Result:=Format('%2.3f',[AD.Value])
+  else Result:=GetADMsg(AD);
+end;
+
+function TFrameGraph.GetDataColor: TColor;
+begin
+  if MouseShowDataTicks>0
+  then Result:=clYellow
+  else if SpyMode then begin
+    if DataNotChanged
+    then Result:=clRed
+    else Result:=clLime
+  end
+  else Result:=clOlive;
+end;
+
+function TFrameGraph.GetTimeColor: TColor;
+begin
+  if MouseShowDataTicks>0
+  then Result:=clYellow
+  else if SpyMode then begin
+    if DataNotChanged
+    then Result:=clFuchsia
+    else Result:=clAqua
+  end
+  else Result:=clSilver;
+end;
+
+procedure TFrameGraph.FrameResize(Sender: TObject);
+begin
+  PnlData.Left:=ClientWidth-PnlData.Width;
+  PnlTime.Left:=ClientWidth-PnlTime.Width;
+  PnlTime.Top:=ClientHeight-PnlTime.Height;
+end;
+
+procedure TFrameGraph.FrameClick(Sender: TObject);
+begin
+  SetFocus;
+end;
+
+procedure TFrameGraph.SBtnColorClick(Sender: TObject);
+begin
+  if not (SBtnRed.Down or SBtnOrange.Down or
+    SBtnYellow.Down or SBtnGreen.Down or SBtn3Color.Down)
+  then SBtnWhite.Down:=True;
+  View1ChangeViewState;
+end;
+
+function TFrameGraph.Get_LabelTime: TDateTime;
+begin
+  Result:=ScrL.BegTime+LabelPosF*ScrL.Period;
+end;
+
+procedure TFrameGraph.Set_LabelTime(const Value: TDateTime);
+begin
+  LabelPosF:=(Value-ScrL.BegTime)*ScrL.RecsPerDay;
+end;
+
+procedure TFrameGraph.FrameMouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+  if ssCtrl in Shift then begin
+    Handled:=True;
+    if WheelDelta<0 then begin
+      if SpdBtnZoomOut.Enabled then SpdBtnZoomOut.Click;
+    end
+    else if WheelDelta>0 then begin
+      if SpdBtnZoomIn.Enabled then SpdBtnZoomIn.Click;
+    end;
+  end;
+end;
+
+end.
