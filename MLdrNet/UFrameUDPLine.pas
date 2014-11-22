@@ -190,13 +190,14 @@ constructor TUDPConnection.Create(IP: String; Port: Integer; UDP: TNMUDP);
 begin
   inherited Create;
   prt1:=TPRT_UDP.Create(UDP,IP,Port);
-  prt2:=TPRT_Liner.Create(prt1, False);
+  prt2:=TPRT_Liner.Create(prt1);
   NetW_addProcessIO(ProcessIO);
 end;
 
 destructor TUDPConnection.Destroy;
 begin
   NetW_remProcessIO(ProcessIO);
+  NetW_remConn(prt2);
   prt2.Free;
   prt1.Free;
   inherited;

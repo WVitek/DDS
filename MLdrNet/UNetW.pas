@@ -9,8 +9,17 @@ const
   MyAddr = 1;
   MaxPacketDataSize = 1000;
 
+// Обработка пакета, полученного по соединению Conn
 function NetW_receive(Conn:Pointer; const Data; DataSize:Integer):Boolean;
+
+// Получение пакета для передачи по соединению Conn
 function NetW_transmit(Conn:Pointer; var Buf; BufSize:Integer):Integer;
+
+// Принудительное ассоциирование соединения с адресом/адресами
+procedure NetW_assocConn(Conn:Pointer; Addr:Byte);
+
+// Освобождение ресурсов, ассоциированных с соединением Conn
+procedure NetW_remConn(Conn:Pointer);
 
 type
   TService = class(TObject)
@@ -38,8 +47,16 @@ uses
   SysUtils, Contnrs, UCRC;
 
 var
-  SvcList: TObjectList;
-  ConnList, ListIO: TStringList;
+  // для каждого сетевого адреса [0..255] список сервисов (TService)
+  SvcList: array[0..255] of TStringList;
+  // справочник соответствия [соединение -> сетевой адрес]
+  // ключ: адрес объекта "соединение"
+  // значение: сетевой адрес удалённого устройства
+  ConnList: TStringList;
+  // перечень методов-обработчиков ввода-вывода FProcessIO
+  // ключ: хеш-код метода
+  // значение: метод
+  ListIO: TStringList;
 
 function PtrToHex(Ptr:Pointer):String;
 begin
@@ -129,35 +146,71 @@ begin
   else Result:=nil;
 end;
 
-function SetConnAssoc(Conn:Pointer; Addr, SvcID:Byte):TService;
+procedure NetW_remConn(Conn:Pointer);
 var
   i:Integer;
   S:String;
 begin
+  //exit;
+  S:=PtrToHex(Conn);
+  if not ConnList.Find(S,i) then exit;
+  TList(ConnList.Objects[i]).Free;
+  ConnList.Delete(i);
+end;
+
+procedure NetW_assocConn(Conn:Pointer; Addr:Byte);
+var
+  i:Integer;
+  S:String;
+  addrs:TList;
+begin
   S:=PtrToHex(Conn);
   if not ConnList.Find(S,i)
-  then i:=ConnList.AddObject(S,Pointer(Addr));
+  then begin
+    addrs:=TList.Create();
+    i:=ConnList.AddObject(S,addrs);
+  end;
+  addrs:=TList(ConnList.Objects[i]);
+  if addrs.IndexOf(Pointer(Addr))<0
+  then addrs.Add(Pointer(Addr));
+end;
+
+function SetConnAssoc(Conn:Pointer; Addr, SvcID:Byte):TService;
+begin
+  NetW_assocConn(Conn,Addr);
   Result:=NetW_getService(Addr,SvcID);
 end;
 
 function GetConnSvcToTx(Conn:Pointer; var Addr, SvcID:Byte):TService;
 var
-  i:Integer;
+  iConn,iSvc,iAddr,tmpAddr:Integer;
   L:TStringList;
+  addrs:TList;
+  NoSvc:Boolean;
 begin
   Result:=nil;
-  if not ConnList.Find(PtrToHex(Conn),i) then exit;
-  Addr:=Byte(ConnList.Objects[i]);
-  L:=TStringList(SvcList[Addr]);
-  if L=nil then exit;
-  for i:=0 to L.Count-1 do
+  if not ConnList.Find(PtrToHex(Conn),iConn) then exit;
+  addrs:=TList(ConnList.Objects[iConn]);
+  for iSvc:=0 to 255 do
   begin
-    if TService(L.Objects[i]).HaveDataToTransmit() then
+    NoSvc:=true;
+    for iAddr:=addrs.Count-1 downto 0 do
     begin
-      Result:=TService(L.Objects[i]);
-      SvcID:=Result.ID;
-      exit;
+      tmpAddr:=Byte(addrs[iAddr]);
+      L:=TStringList(SvcList[tmpAddr]);
+      if iSvc>=L.Count then continue;
+      NoSvc:=false;
+      if TService(L.Objects[iSvc]).HaveDataToTransmit() then
+      begin
+        Result:=TService(L.Objects[iSvc]);
+        Addr:=tmpAddr;
+        SvcID:=Result.ID;
+        addrs.Move(iAddr,0);
+        exit;
+      end;
     end;
+    if NoSvc
+    then break;
   end;
 end;
 
@@ -241,13 +294,9 @@ begin
 end;
 
 initialization
-  SvcList:=TObjectList.Create;
-  SvcList.Capacity:=256;
-  SvcList.Count:=256;
   ConnList:=CreateSortedStringList;
   ListIO:=CreateSortedStringList;
 finalization
   ListIO.Free;
   ConnList.Free;
-  SvcList.Free;
 end.

@@ -275,7 +275,8 @@ begin
     ID:=@(Data[1]);
     if ID.SensQnt>0
     then begin
-        MaxQntSamples:=(LINER_TXBSIZE-1-SizeOf(TIME_STAMP)) div (ID.SensQnt*ADCSampleSize);
+        // 5 = ToAddr + FromAdd + SvcID + 2 bytes of CRC
+        MaxQntSamples:=(LINER_TXBSIZE-5-SizeOf(TIME_STAMP)) div (ID.SensQnt*ADCSampleSize);
         QntSamples:=(Length(Data)-1-SizeOf(TIME_STAMP)) div (ID.SensQnt*ADCSampleSize);
 {$IFDEF UseTSclRecN}
         if QntSamples>High(Buf.P)+1
@@ -296,7 +297,7 @@ begin
       if Result < DataLag
       then Result:=DataLag-Result
       else if QntSamples<MaxQntSamples
-      then Result:=1
+      then Result:=((MaxQntSamples - QntSamples)*DataLag + MaxQntSamples-1) div MaxQntSamples
       else Result:=0;
     end;
     CommMsg(

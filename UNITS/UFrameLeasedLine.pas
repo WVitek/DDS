@@ -83,7 +83,8 @@ type
 implementation
 
 uses
-  Misc, UTime, UNetW;
+  Misc, UTime, UNetW,
+  UPRT_HalfduplexLiner;
 
 {$R *.DFM}
 
@@ -123,6 +124,10 @@ constructor TItemLLine.Load(Nodes:TTreeNodes; ParentNode:TTreeNode;
   Ini,Cfg: TIniFile; const Section: String);
 var
   HalfDuplex,CheckRLSD:Boolean;
+  addrs, sAddr:string;
+  i,j,L:Integer;
+  addr,err:Integer;
+  rx_timeout:Integer;
 begin
   Self.Section:=Section;
   Node:=Nodes.AddChildObject(ParentNode,Section,Self);
@@ -130,16 +135,35 @@ begin
   BaudRate:=Cfg.ReadInteger(Section,'BaudRate',19200);
   HalfDuplex:=Ini.ReadBool(Section,'HalfDuplex',False);
   CheckRLSD:=Ini.ReadBool(Section,'CheckRLSD',False);
+  addrs:=Ini.ReadString(Section,'Addrs','');
+  rx_timeout:=Ini.ReadInteger(Section,'HalfDuplexRxTout',3000);
   Working:=True;
   prtCom:=TPRT_COMPORT.Create;
   prtCom.CheckRLSD:=CheckRLSD;
-  prt:=TPRT_LINER.Create(prtCom,HalfDuplex);
+  if Halfduplex
+  then prt:=TPRT_HDLINER.Create(prtCom, rx_timeout)
+  else prt:=TPRT_LINER.Create(prtCom);
   NetW_addProcessIO(ProcessIO);
+  // associate specified addresses with this connection
+  j:=1; i:=0;
+  L:=Length(addrs);
+  while i<=L do
+  begin
+    Inc(i);
+    if (i>L) or (addrs[i]=',') then begin
+      sAddr:=Copy(addrs,j,i-j);
+      Val(sAddr,addr,err);
+      if err=0
+      then NetW_assocConn(prt,addr);
+      j:=i+1;
+    end;
+  end;
 end;
 
 destructor TItemLLine.Destroy;
 begin
   NetW_remProcessIO(ProcessIO);
+  NetW_remConn(prt);
   prt.Free;
   prtCom.Free;
 end;

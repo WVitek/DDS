@@ -11,18 +11,16 @@ const
 
 type
   TPRT_LINER = class(TPRT)
-  protected
+  private
     prt:TPRT;
     InBLen,BufPos:Integer;
     RxReady,NeedXor:Boolean;
+    // буфер полученных "сырых" данных
     InB:array[0..LINER_INBSIZE-1] of Byte;
+    // буфер для принятого пакета
     Buf:array[0..LINER_INBSIZE-1] of Byte;
-    // Halfduplex transmission objects
-    HalfDuplex : Boolean;
-    PauseTx, WasNullRx : Boolean;
-    TxTimeout, RxTimeout : TTimeoutObj;
   public
-    constructor Create(prt:TPRT; HalfDuplex:Boolean);
+    constructor Create(prt:TPRT);
   public // interface
     function Open:HRESULT;override;
     procedure Close;override;
@@ -83,11 +81,9 @@ const
 
 { TPRT_LINER }
 
-constructor TPRT_LINER.Create(prt: TPRT; HalfDuplex:Boolean);
+constructor TPRT_LINER.Create(prt: TPRT);
 begin
   Self.prt:=prt;
-  Self.HalfDuplex:=HalfDuplex;
-  RxTimeout.start(RX_TIMEOUT);
 end;
 
 //******************** begin of PRT interface
@@ -123,29 +119,16 @@ end;
 
 procedure TPRT_LINER.Tx(const Data; Cnt: Integer);
 var
-  TxData,TxEOL:Boolean;
+  TxEOL:Boolean;
   TxBuf:array of Byte;
   Src:^Byte;
   TxPos:Integer;
   c:Byte;
 begin
-  TxData := False; TxEOL := True;
-  if HalfDuplex then
-  begin
-    // if (have data) or (last rx is not null) or (urgent null tx)
-    if (Cnt>0) or not WasNullRx or (@Data=nil) then
-    begin
-      TxData := Cnt>0;
-      PauseTx := True;
-      TxTimeout.stop();
-    end
-    else TxEOL := False;
-  end
-  else
-    TxData := Cnt>0;
+  TxEOL := True;
   SetLength(TxBuf,Cnt*2+1);
   TxPos := 0;
-  if TxData then
+  if Cnt>0 then
   begin
     Src := @Data;
     while Cnt>0 do
@@ -174,7 +157,6 @@ function TPRT_LINER.ProcessIO: Integer;
 var
   i:Integer;
   c:Byte;
-  SomeTx:Boolean;
 begin
   Result:=prt.ProcessIO();
   if Result and IO_UP = 0 then exit;
@@ -215,33 +197,11 @@ begin
     if InBLen>0
     then Move(InB[i],InB[0],InBLen);
     if RxReady then
-    begin
       NeedXor:=FALSE;
-      if HalfDuplex then
-      begin
-        PauseTx:=FALSE;
-        RxTimeout.start( RX_TIMEOUT );
-        TxTimeout.start(50); // 50 ms timeout
-        WasNullRx := BufPos=0;
-      end;
-    end;
   end;
   if RxReady
   then Result := Result or IO_RX
   else Result := Result and not IO_RX;
-  //********** TX
-  if HalfDuplex then
-  begin
-    SomeTx := not PauseTx and TxTimeout.IsSignaled();
-    if not SomeTx and RxTimeout.IsSignaled() then
-    begin
-      SomeTx := TRUE;
-      RxTimeout.start( RX_TIMEOUT );
-    end;
-    if SomeTx then Tx( nil^, 0 );
-  end;
-  //
-  if PauseTx then Result := Result and not IO_TX;
 end;
 
 //******************** end of PRT interface

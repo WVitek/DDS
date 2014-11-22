@@ -1,6 +1,6 @@
 object FormMain: TFormMain
   Left = 142
-  Top = 324
+  Top = 331
   AutoScroll = False
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'NetMultiLoader'

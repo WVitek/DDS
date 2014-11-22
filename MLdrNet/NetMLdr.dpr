@@ -22,7 +22,8 @@ uses
   UCRC in 'UCRC.pas',
   UServices in 'UServices.pas',
   UPRT_UDP in 'UPRT_UDP.pas',
-  UFrameUDPLine in 'UFrameUDPLine.pas' {FrameUDPLine: TFrame};
+  UFrameUDPLine in 'UFrameUDPLine.pas' {FrameUDPLine: TFrame},
+  UPRT_HalfduplexLiner in 'UPRT_HalfduplexLiner.pas';
 
 {$R *.RES}
 

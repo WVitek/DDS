@@ -53,10 +53,6 @@ uses UTime, UFrameLeasedLine, UFrameKP, UFrameUDPLine, UPRT_COMPORT;
 
 {$R *.DFM}
 
-//const
-//  ProgName='MLdr7188';
-//  Section=ProgName;
-
 procedure TFormMain.FormCreate(Sender: TObject);
 var
   hSysMenu:Integer;
