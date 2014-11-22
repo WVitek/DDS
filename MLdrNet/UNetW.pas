@@ -151,7 +151,6 @@ var
   i:Integer;
   S:String;
 begin
-  //exit;
   S:=PtrToHex(Conn);
   if not ConnList.Find(S,i) then exit;
   TList(ConnList.Objects[i]).Free;

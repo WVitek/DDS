@@ -35,6 +35,7 @@ end;
 function TPRT_HDLINER.Rx(var Data; MaxSize:Integer): Integer;
 begin
   Result:=inherited Rx(Data,MaxSize);
+  ClearInBuf;
 end;
 
 procedure TPRT_HDLINER.Tx(const Data; Cnt: Integer);

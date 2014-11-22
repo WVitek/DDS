@@ -19,6 +19,8 @@ type
     InB:array[0..LINER_INBSIZE-1] of Byte;
     // буфер для принятого пакета
     Buf:array[0..LINER_INBSIZE-1] of Byte;
+  protected
+    procedure ClearInBuf;
   public
     constructor Create(prt:TPRT);
   public // interface
@@ -76,14 +78,16 @@ begin
   end;
 end;
 
-const
-  RX_TIMEOUT = toTypeSec or 3;
-
 { TPRT_LINER }
 
 constructor TPRT_LINER.Create(prt: TPRT);
 begin
   Self.prt:=prt;
+end;
+
+procedure TPRT_LINER.ClearInBuf;
+begin
+  InBLen:=0;
 end;
 
 //******************** begin of PRT interface

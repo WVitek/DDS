@@ -283,7 +283,10 @@ begin
         then QntSamples:=High(Buf.P)+1;
 {$ENDIF}
     end
-    else QntSamples:=0;
+    else begin
+        MaxQntSamples:=1;
+        QntSamples:=0;
+    end;
     BegDataTime:=ToDateTime(ID.Time);
     EndDataTime:=BegDataTime+QntSamples*Period;
     // Result = we need to receive
