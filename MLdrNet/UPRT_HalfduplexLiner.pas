@@ -10,9 +10,12 @@ type
   protected
     timeout : TTimeoutObj;
     rx_timeout: TTimeout;
+    buf:array[0..LINER_INBSIZE-1] of Byte;
+    size:Integer;
   public
     constructor Create(prt:TPRT; rx_timeout:TTimeout);
   public // interface
+    function RxSize():Integer;override;
     function Rx(var Data; MaxSize:Integer):Integer;override;
     procedure Tx(const Data; Cnt:Integer);override;
     function ProcessIO():Integer;override;
@@ -34,8 +37,16 @@ end;
 
 function TPRT_HDLINER.Rx(var Data; MaxSize:Integer): Integer;
 begin
-  Result:=inherited Rx(Data,MaxSize);
-  ClearInBuf;
+  Result:=size;
+  if Result=0 then exit;
+  if Result>MaxSize then Result:=MaxSize;
+  move(buf,data,Result);
+  size:=0;
+end;
+
+function TPRT_HDLINER.RxSize: Integer;
+begin
+  Result:=size;
 end;
 
 procedure TPRT_HDLINER.Tx(const Data; Cnt: Integer);
@@ -46,11 +57,20 @@ end;
 
 function TPRT_HDLINER.ProcessIO: Integer;
 begin
-  Result:=inherited ProcessIO();
+  repeat
+    Result:=inherited ProcessIO();
+    if Result and IO_RX <> 0 then
+      size:=inherited Rx(buf, LINER_INBSIZE)
+    else break;
+  until false;
   if Result and IO_UP = 0 then
     exit;
-  if Result and IO_RX <> 0 then
+  if size > 0 then
+  begin
     timeout.setSignaled(true);
+    Result:=Result or IO_RX;
+    ClearInBuf;
+  end;
   if not timeout.IsSignaled then
     Result:=Result and not IO_TX;
 end;
