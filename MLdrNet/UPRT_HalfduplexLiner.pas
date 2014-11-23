@@ -24,7 +24,7 @@ type
 implementation
 
 uses
-  SysUtils, UNetW;
+  SysUtils, UNetW, UCRC;
 
 { TPRT_HDLINER }
 
@@ -60,7 +60,10 @@ begin
   repeat
     Result:=inherited ProcessIO();
     if Result and IO_RX <> 0 then
-      size:=inherited Rx(buf, LINER_INBSIZE)
+    begin
+      size:=inherited Rx(buf, LINER_INBSIZE);
+      if FCS_is_OK(buf,size) then break;
+    end
     else break;
   until false;
   if Result and IO_UP = 0 then
